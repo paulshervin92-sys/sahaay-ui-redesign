@@ -5,7 +5,6 @@ import {
   Heart,
   Users,
   LogOut,
-  Sparkles,
   NotebookPen,
   Settings,
   ShieldAlert,
@@ -43,8 +42,8 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <div className="flex items-center gap-2 px-4 py-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-          <Sparkles className="h-5 w-5" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 shadow-sm">
+          <img src="/logo.png" alt="Sahaay AI logo" className="h-7 w-7 rounded-lg object-cover" />
         </div>
         {!collapsed && (
           <span className="font-display text-xl font-bold tracking-tight text-foreground">
