@@ -1,5 +1,33 @@
+# ===================================
+# Dependencies
+# ===================================
+node_modules/
+.pnp
+.pnp.js
+
+# ===================================
+# Build Output
+# ===================================
+dist/
+dist-ssr/
+build/
+.vite/
+*.local
+
+# ===================================
+# Environment Variables
+# ===================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# ===================================
 # Logs
-logs
+# ===================================
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,18 +35,118 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# ===================================
+# Testing & Coverage
+# ===================================
+coverage/
+*.coverage
+.nyc_output/
+.cache/
 
-# Editor directories and files
+# ===================================
+# Firebase
+# ===================================
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebaserc
+firebase.json
+
+# ===================================
+# IDE & Editor Files
+# ===================================
+# VSCode
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.code-workspace
+
+# IntelliJ IDEA / WebStorm
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Visual Studio
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# ===================================
+# OS Files
+# ===================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ===================================
+# Package Manager Locks (Optional)
+# ===================================
+# Uncomment if you want to ignore lock files
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+# bun.lockb
+
+# ===================================
+# Temporary & Cache Files
+# ===================================
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+.eslintcache
+.stylelintcache
+.npm/
+.yarn/
+
+# ===================================
+# Local Development
+# ===================================
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Local development certificates
+*.pem
+*.key
+*.cert
+
+# ===================================
+# Misc
+# ===================================
+# TypeScript
+*.tsbuildinfo
+
+# Storybook
+storybook-static/
+
+# Chromatic
+chromatic-build/
