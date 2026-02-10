@@ -6,11 +6,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Phone, ShieldAlert, Plus, Trash2 } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import type { SafetyContact, SafetyPlan, SafetyResource } from "@/types";
+import { apiFetch } from "@/lib/api";
 
-const helplines = [
-  { name: "AASRA", number: "9820466726" },
-  { name: "Vandrevala Foundation", number: "1860-2662-345" },
-];
+interface Helpline {
+  name: string;
+  number: string;
+}
 
 const emptyPlan: SafetyPlan = {
   updatedAt: "",
@@ -58,6 +59,7 @@ const SafetyPlanPage = () => {
   const [contacts, setContacts] = useState<SafetyContact[]>([]);
   const [resources, setResources] = useState<SafetyResource[]>([]);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [helplines, setHelplines] = useState<Helpline[]>([]);
 
   useEffect(() => {
     const plan = safetyPlan ?? emptyPlan;
@@ -71,6 +73,12 @@ const SafetyPlanPage = () => {
     setResources(plan.resources.length ? plan.resources : []);
     setSavedAt(plan.updatedAt ? new Date(plan.updatedAt).toLocaleString() : null);
   }, [safetyPlan]);
+
+  useEffect(() => {
+    apiFetch<{ helplines: Helpline[] }>("/api/config/helplines")
+      .then((result) => setHelplines(result.helplines || []))
+      .catch(() => setHelplines([]));
+  }, []);
 
   const filledPreview = useMemo(() => {
     const plan = safetyPlan ?? emptyPlan;
@@ -321,6 +329,9 @@ const SafetyPlanPage = () => {
               </a>
             </div>
           ))}
+          {!helplines.length && (
+            <p className="text-xs text-muted-foreground">Add local helplines in your safety plan for quick access.</p>
+          )}
         </CardContent>
       </Card>
 

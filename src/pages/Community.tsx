@@ -1,15 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageCircle, Shield, Flag, LifeBuoy, BadgeCheck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUser } from "@/contexts/UserContext";
-import { addReport } from "@/lib/localStore";
 import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/api";
 
 interface Post {
-  id: number;
+  id: string;
   author: string;
   text: string;
   likes: number;
@@ -20,79 +20,42 @@ interface Post {
   isModerator?: boolean;
 }
 
-const initialPosts: Post[] = [
-  {
-    id: 1,
-    author: "Anonymous Sunflower 🌻",
-    text: "Today I went outside for the first time in a week. Small wins matter.",
-    likes: 24,
-    replies: 5,
-    time: "2h ago",
-    liked: false,
-    category: "wins",
-  },
-  {
-    id: 2,
-    author: "Anonymous Cloud ☁️",
-    text: "The breathing exercise actually helped me through a panic attack last night. Thank you for this app.",
-    likes: 41,
-    replies: 8,
-    time: "4h ago",
-    liked: false,
-    category: "support",
-    isModerator: true,
-  },
-  {
-    id: 3,
-    author: "Anonymous River 🌊",
-    text: "Does anyone else feel like weekends are harder than weekdays? I feel more alone when everything slows down.",
-    likes: 18,
-    replies: 12,
-    time: "6h ago",
-    liked: false,
-    category: "questions",
-  },
-  {
-    id: 4,
-    author: "Anonymous Star ⭐",
-    text: "Day 30 of journaling. I can actually see patterns in my emotions now. Growth is slow but real.",
-    likes: 56,
-    replies: 15,
-    time: "1d ago",
-    liked: false,
-    category: "venting",
-  },
-];
-
 const Community = () => {
-  const [posts, setPosts] = useState(initialPosts);
-  const [blockedIds, setBlockedIds] = useState<number[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [blockedIds, setBlockedIds] = useState<string[]>([]);
   const [suggestion, setSuggestion] = useState("");
   const { user } = useAuth();
   const { settings } = useUser();
   const { toast } = useToast();
 
-  const toggleLike = (id: number) => {
+  useEffect(() => {
+    apiFetch<{ posts: Post[] }>("/api/community")
+      .then((result) => setPosts(result.posts))
+      .catch(() => setPosts([]));
+  }, []);
+
+  const toggleLike = (id: string) => {
     setPosts((prev) =>
       prev.map((p) =>
         p.id === id
           ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 }
-          : p
-      )
+          : p,
+      ),
     );
+    const post = posts.find((p) => p.id === id);
+    apiFetch<{ likes: number }>("/api/community/like", {
+      method: "POST",
+      body: JSON.stringify({ postId: id, liked: !post?.liked }),
+    }).catch(() => null);
   };
 
   const reportPost = async (post: Post) => {
-    if (!user) {
-      toast({ title: "Report saved locally." });
-      return;
-    }
-    addReport(user.uid, { postId: post.id, category: post.category });
-    if (settings.privateMode) {
-      toast({ title: "Report saved locally." });
-      return;
-    }
-    toast({ title: "Report saved locally", description: "We will sync once the project is connected." });
+    if (!user) return;
+    await apiFetch("/api/community/report", {
+      method: "POST",
+      body: JSON.stringify({ postId: post.id, category: post.category, anonymous: settings.privateMode }),
+    });
+    toast({ title: "Report submitted" });
   };
 
   const blockPost = (post: Post) => {
@@ -100,24 +63,33 @@ const Community = () => {
     toast({ title: "Post hidden", description: "You will not see posts from this author." });
   };
 
-  const submitSuggestion = () => {
+  const submitSuggestion = async () => {
     if (!suggestion.trim()) {
       toast({ title: "Please add a suggestion." });
       return;
     }
-    const nextPost: Post = {
-      id: Date.now(),
-      author: user?.displayName ? `${user.displayName} (You)` : "You",
-      text: suggestion.trim(),
-      likes: 0,
-      replies: 0,
-      time: "Just now",
-      liked: false,
-      category: "suggestions",
-    };
-    setPosts((prev) => [nextPost, ...prev]);
-    setSuggestion("");
-    toast({ title: "Suggestion posted" });
+    const createdAt = new Date().toISOString();
+    try {
+      const result = await apiFetch<{ id: string }>("/api/community", {
+        method: "POST",
+        body: JSON.stringify({ text: suggestion.trim(), category: "suggestions" }),
+      });
+      const nextPost: Post = {
+        id: result.id,
+        author: user?.displayName ? `${user.displayName} (You)` : "You",
+        text: suggestion.trim(),
+        likes: 0,
+        replies: 0,
+        time: new Date(createdAt).toLocaleString(),
+        liked: false,
+        category: "suggestions",
+      };
+      setPosts((prev) => [nextPost, ...prev]);
+      setSuggestion("");
+      toast({ title: "Suggestion posted" });
+    } catch (error) {
+      toast({ title: "Unable to post suggestion", description: "Please try again." });
+    }
   };
 
   return (

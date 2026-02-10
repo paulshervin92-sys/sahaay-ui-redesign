@@ -1,33 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { useUser } from "@/contexts/UserContext";
+import { apiFetch } from "@/lib/api";
 
-const weeklyData = [
-  { day: "Mon", mood: 7, stress: 4 },
-  { day: "Tue", mood: 6, stress: 5 },
-  { day: "Wed", mood: 5, stress: 7 },
-  { day: "Thu", mood: 6, stress: 6 },
-  { day: "Fri", mood: 8, stress: 3 },
-  { day: "Sat", mood: 9, stress: 2 },
-  { day: "Sun", mood: 8, stress: 3 },
-];
-
-const monthlyData = [
-  { week: "W1", mood: 6.2, stress: 5.1 },
-  { week: "W2", mood: 6.8, stress: 4.5 },
-  { week: "W3", mood: 7.1, stress: 3.9 },
-  { week: "W4", mood: 7.5, stress: 3.5 },
-];
-
-const insights = [
-  "Your stress levels tend to peak mid-week.",
-  "Weekends are your happiest days — you're doing great! 🌟",
-  "Your overall mood has improved 12% this month.",
-];
+interface AnalyticsPayload {
+  streak: number;
+  averageSentiment: number;
+  sentimentByDay: Array<{ dayKey: string; sentiment: number; normalizedMood: string; moodScore: number }>;
+}
 
 const moodEmojis: Record<string, string> = {
   happy: "😊",
@@ -41,6 +25,43 @@ const moodEmojis: Record<string, string> = {
 const Analytics = () => {
   const [range, setRange] = useState("weekly");
   const { settings, checkIns } = useUser();
+  const [analytics, setAnalytics] = useState<AnalyticsPayload | null>(null);
+  const timezone = settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
+  useEffect(() => {
+    apiFetch<{ analytics: AnalyticsPayload }>(`/api/analytics?timezone=${encodeURIComponent(timezone)}`)
+      .then((result) => setAnalytics(result.analytics))
+      .catch(() => setAnalytics(null));
+  }, [timezone]);
+
+  const sentimentDays = analytics?.sentimentByDay ?? [];
+  const weeklyData = sentimentDays.slice(0, 7).reverse().map((day) => {
+    const label = new Date(`${day.dayKey}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" });
+    const mood = Math.round(day.sentiment * 10);
+    return { day: label, mood, stress: Math.max(0, 10 - mood) };
+  });
+
+  const monthlyData = (() => {
+    const buckets: Record<string, { mood: number; stress: number; count: number }> = {};
+    sentimentDays.forEach((day) => {
+      const date = new Date(`${day.dayKey}T00:00:00`);
+      const weekKey = `W${Math.ceil(date.getDate() / 7)}`;
+      if (!buckets[weekKey]) {
+        buckets[weekKey] = { mood: 0, stress: 0, count: 0 };
+      }
+      const mood = Math.round(day.sentiment * 10);
+      buckets[weekKey].mood += mood;
+      buckets[weekKey].stress += Math.max(0, 10 - mood);
+      buckets[weekKey].count += 1;
+    });
+
+    return Object.entries(buckets).map(([week, value]) => ({
+      week,
+      mood: value.count ? Number((value.mood / value.count).toFixed(1)) : 0,
+      stress: value.count ? Number((value.stress / value.count).toFixed(1)) : 0,
+    }));
+  })();
+
   const data = range === "weekly" ? weeklyData : monthlyData;
   const xKey = range === "weekly" ? "day" : "week";
 
@@ -82,6 +103,14 @@ const Analytics = () => {
     const top = averages.sort((a, b) => b.value - a.value)[0];
     return top?.value ? `${top.key} tends to feel best for you.` : "Not enough data yet.";
   }, [checkIns]);
+
+  const insights = [
+    analytics?.averageSentiment
+      ? `Average sentiment this period: ${Math.round(analytics.averageSentiment * 100)}%.`
+      : "Your stress levels tend to peak mid-week.",
+    `Current streak: ${analytics?.streak ?? 0} days.`,
+    "Weekends are your happiest days — you're doing great! 🌟",
+  ];
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 animate-fade-in">

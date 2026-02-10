@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Env files
+.env
+.env.*
+backend/.env
+backend/.env.*
+.env.example
+backend/.env.example
+
+# Service account keys
+sahaay-ai-7fd925852862.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

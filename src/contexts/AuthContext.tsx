@@ -1,14 +1,14 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import {
-  authenticateUser,
-  createUser,
-  getCurrentUser,
-  setCurrentUser,
-  type LocalUser,
-} from "@/lib/localStore";
+import { apiFetch } from "@/lib/api";
+
+export interface AuthUser {
+  uid: string;
+  email?: string;
+  displayName?: string;
+}
 
 interface AuthContextValue {
-  user: LocalUser | null;
+  user: AuthUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName?: string) => Promise<void>;
@@ -18,13 +18,18 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<LocalUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const current = getCurrentUser();
-    setUser(current);
-    setLoading(false);
+    apiFetch<{ userId: string }>("/api/auth/me")
+      .then((data) => {
+        setUser({ uid: data.userId });
+      })
+      .catch(() => {
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -32,15 +37,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       user,
       loading,
       signIn: async (email, password) => {
-        const nextUser = authenticateUser(email, password);
-        setUser(nextUser);
+        const result = await apiFetch<{ user: { userId: string; email: string; displayName: string } }>(
+          "/api/auth/login",
+          {
+            method: "POST",
+            body: JSON.stringify({ email, password }),
+          },
+        );
+        setUser({
+          uid: result.user.userId,
+          email: result.user.email,
+          displayName: result.user.displayName,
+        });
       },
       signUp: async (email, password, displayName) => {
-        const nextUser = createUser(email, password, displayName);
-        setUser(nextUser);
+        const result = await apiFetch<{ user: { userId: string; email: string; displayName: string } }>(
+          "/api/auth/register",
+          {
+            method: "POST",
+            body: JSON.stringify({ email, password, displayName }),
+          },
+        );
+        setUser({
+          uid: result.user.userId,
+          email: result.user.email,
+          displayName: result.user.displayName,
+        });
       },
       logOut: async () => {
-        setCurrentUser(null);
+        await apiFetch("/api/auth/logout", { method: "POST" });
         setUser(null);
       },
     }),

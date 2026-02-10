@@ -17,6 +17,7 @@ export interface UserSettings {
   reminderTime: string;
   privateMode: boolean;
   offlineSync: boolean;
+  timezone?: string;
 }
 
 export interface CheckIn {

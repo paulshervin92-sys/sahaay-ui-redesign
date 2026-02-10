@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/contexts/UserContext";
+import { apiFetch } from "@/lib/api";
 
 const Settings = () => {
   const { settings, updateSettings, exportData, deleteAllData } = useUser();
@@ -16,10 +17,41 @@ const Settings = () => {
     await updateSettings({ fontScale: next });
   };
 
+  const toUint8Array = (base64: string) => {
+    const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+    const base64Safe = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = window.atob(base64Safe);
+    const output = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i += 1) {
+      output[i] = raw.charCodeAt(i);
+    }
+    return output;
+  };
+
   const requestNotifications = async () => {
     if (!("Notification" in window)) return;
     if (Notification.permission === "granted") return;
-    await Notification.requestPermission();
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return;
+    if (!("serviceWorker" in navigator)) return;
+
+    const registration = await navigator.serviceWorker.ready;
+    const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+    if (!publicKey) return;
+
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: toUint8Array(publicKey),
+    });
+
+    await apiFetch("/api/notifications/register", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "webpush",
+        endpoint: subscription.endpoint,
+        keys: subscription.toJSON().keys,
+      }),
+    });
   };
 
   return (

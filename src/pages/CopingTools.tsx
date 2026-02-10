@@ -1,15 +1,12 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Wind, Mountain, Sparkles, Dumbbell, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useUser } from "@/contexts/UserContext";
 import { EVIDENCE_BASED_COPING_TOOLS } from "@/lib/copingToolsData";
-import { 
-  buildRecommendationContext, 
-  getRecommendedCopingTools,
-  type RecommendedTool 
-} from "@/lib/copingRecommendation";
+import type { RecommendedTool } from "@/lib/copingRecommendation";
+import { apiFetch } from "@/lib/api";
 
 const affirmations = [
   "I am doing the best I can, and that is enough. 🌱",
@@ -22,7 +19,7 @@ const affirmations = [
 const CopingTools = () => {
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [breathPhase, setBreathPhase] = useState<"idle" | "inhale" | "hold" | "exhale">("idle");
-  const { profile, checkIns, chatTags } = useUser();
+  const { profile } = useUser();
   const [moodFocus, setMoodFocus] = useState<"anxious" | "sad" | "happy" | "neutral">(
     profile?.baselineMood === "anxious"
       ? "anxious"
@@ -33,34 +30,38 @@ const CopingTools = () => {
           : "neutral",
   );
 
-  // =============================================
-  // AI-DRIVEN RECOMMENDATION ENGINE
-  // =============================================
-  
-  /**
-   * Build context from local storage data
-   * Uses today's check-ins + recent chat messages
-   */
-  const recommendationContext = useMemo(() => {
-    // Convert chatTags to message-like format for sentiment analysis
-    const chatMessages = chatTags?.map(tag => ({ text: tag.context || tag.tag })) || [];
-    
-    return buildRecommendationContext(
-      checkIns || [],
-      chatMessages
-    );
-  }, [checkIns, chatTags]);
+  const [recommendedTools, setRecommendedTools] = useState<RecommendedTool[]>([]);
+  const timeoutsRef = useRef<number[]>([]);
 
-  /**
-   * Get AI-recommended tools sorted by relevance
-   * Returns tools with scores and explanations
-   */
-  const recommendedTools: RecommendedTool[] = useMemo(() => {
-    return getRecommendedCopingTools(
-      EVIDENCE_BASED_COPING_TOOLS,
-      recommendationContext
+  useEffect(() => {
+    apiFetch<{ recommendations: RecommendedTool[] }>("/api/coping/recommendations")
+      .then((result) => {
+        const iconMap = new Map(EVIDENCE_BASED_COPING_TOOLS.map((tool) => [tool.id, tool]));
+        const merged = result.recommendations.map((tool) => {
+          const meta = iconMap.get(tool.id);
+          return {
+            ...tool,
+            icon: meta?.icon ?? Sparkles,
+            color: meta?.color ?? "bg-peach text-peach-foreground",
+          };
+        });
+        setRecommendedTools(merged);
+      })
+      .catch(() => setRecommendedTools([]));
+  }, []);
+
+  useEffect(() => {
+    if (!profile?.baselineMood) return;
+    setMoodFocus(
+      profile.baselineMood === "anxious"
+        ? "anxious"
+        : profile.baselineMood === "sad"
+          ? "sad"
+          : profile.baselineMood === "happy"
+            ? "happy"
+            : "neutral",
     );
-  }, [recommendationContext]);
+  }, [profile?.baselineMood]);
 
   /**
    * Filter tools based on user's mood focus selection
@@ -90,27 +91,44 @@ const CopingTools = () => {
   /**
    * Breathing exercise handlers
    */
+  const clearBreathingTimers = () => {
+    timeoutsRef.current.forEach((id) => window.clearTimeout(id));
+    timeoutsRef.current = [];
+  };
+
+  const scheduleBreathPhase = (phase: "inhale" | "hold" | "exhale", delayMs: number) => {
+    const id = window.setTimeout(() => setBreathPhase(phase), delayMs);
+    timeoutsRef.current.push(id);
+  };
+
   const startBreathing = () => {
+    clearBreathingTimers();
     setBreathPhase("inhale");
-    setTimeout(() => setBreathPhase("hold"), 4000);
-    setTimeout(() => setBreathPhase("exhale"), 8000);
-    setTimeout(() => setBreathPhase("inhale"), 12000);
+    scheduleBreathPhase("hold", 4000);
+    scheduleBreathPhase("exhale", 8000);
+    scheduleBreathPhase("inhale", 12000);
   };
 
   const startBoxBreathing = () => {
+    clearBreathingTimers();
     setBreathPhase("inhale");
-    setTimeout(() => setBreathPhase("hold"), 4000);
-    setTimeout(() => setBreathPhase("exhale"), 8000);
-    setTimeout(() => setBreathPhase("hold"), 12000);
-    setTimeout(() => setBreathPhase("inhale"), 16000);
+    scheduleBreathPhase("hold", 4000);
+    scheduleBreathPhase("exhale", 8000);
+    scheduleBreathPhase("hold", 12000);
+    scheduleBreathPhase("inhale", 16000);
   };
 
   const start478Breathing = () => {
+    clearBreathingTimers();
     setBreathPhase("inhale");
-    setTimeout(() => setBreathPhase("hold"), 4000);
-    setTimeout(() => setBreathPhase("exhale"), 11000); // 4 + 7
-    setTimeout(() => setBreathPhase("inhale"), 19000); // 4 + 7 + 8
+    scheduleBreathPhase("hold", 4000);
+    scheduleBreathPhase("exhale", 11000); // 4 + 7
+    scheduleBreathPhase("inhale", 19000); // 4 + 7 + 8
   };
+
+  useEffect(() => {
+    return () => clearBreathingTimers();
+  }, []);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 animate-fade-in">
@@ -179,7 +197,7 @@ const CopingTools = () => {
             <DialogTitle className="font-display text-xl text-foreground text-center">Breathe with me</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center gap-6 py-8">
-            <div className={`flex h-36 w-36 items-center justify-center rounded-full bg-primary/20 transition-all duration-[4s] ease-in-out ${breathPhase === "inhale" ? "scale-125" : breathPhase === "exhale" ? "scale-90" : "scale-100"}`}>
+            <div className={`flex h-36 w-36 items-center justify-center rounded-full bg-primary/20 transition-all [transition-duration:4s] ease-in-out ${breathPhase === "inhale" ? "scale-125" : breathPhase === "exhale" ? "scale-90" : "scale-100"}`}>
               <span className="text-lg font-medium text-primary capitalize">{breathPhase === "idle" ? "Ready" : breathPhase}</span>
             </div>
             <p className="text-sm text-muted-foreground text-center">
@@ -202,7 +220,7 @@ const CopingTools = () => {
             <DialogTitle className="font-display text-xl text-foreground text-center">Box Breathing (4-4-4-4)</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center gap-6 py-8">
-            <div className={`flex h-36 w-36 items-center justify-center rounded-xl bg-primary/20 transition-all duration-[4s] ease-in-out ${breathPhase === "inhale" ? "scale-125" : breathPhase === "exhale" ? "scale-90" : "scale-100"}`}>
+            <div className={`flex h-36 w-36 items-center justify-center rounded-xl bg-primary/20 transition-all [transition-duration:4s] ease-in-out ${breathPhase === "inhale" ? "scale-125" : breathPhase === "exhale" ? "scale-90" : "scale-100"}`}>
               <span className="text-lg font-medium text-primary capitalize">{breathPhase === "idle" ? "Ready" : breathPhase}</span>
             </div>
             <p className="text-sm text-muted-foreground text-center">
@@ -225,7 +243,7 @@ const CopingTools = () => {
             <DialogTitle className="font-display text-xl text-foreground text-center">4-7-8 Breathing</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center gap-6 py-8">
-            <div className={`flex h-36 w-36 items-center justify-center rounded-full bg-primary/20 transition-all duration-[7s] ease-in-out ${breathPhase === "inhale" ? "scale-125" : breathPhase === "exhale" ? "scale-90" : "scale-100"}`}>
+            <div className={`flex h-36 w-36 items-center justify-center rounded-full bg-primary/20 transition-all [transition-duration:7s] ease-in-out ${breathPhase === "inhale" ? "scale-125" : breathPhase === "exhale" ? "scale-90" : "scale-100"}`}>
               <span className="text-lg font-medium text-primary capitalize">{breathPhase === "idle" ? "Ready" : breathPhase}</span>
             </div>
             <p className="text-sm text-muted-foreground text-center">

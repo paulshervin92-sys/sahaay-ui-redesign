@@ -5,12 +5,20 @@ import { SendHorizonal, Phone, ShieldAlert, Tag } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useUser } from "@/contexts/UserContext";
 import { Link } from "react-router-dom";
+import { apiFetch } from "@/lib/api";
+
+interface Helpline {
+  name: string;
+  number: string;
+}
 
 interface Message {
   id: number;
   text: string;
   sender: "user" | "ai";
   isCrisis?: boolean;
+  tags?: string[];
+  createdAt?: string;
 }
 
 const mockResponses = [
@@ -20,18 +28,6 @@ const mockResponses = [
   "I'm glad you're here. Would you like to try a grounding exercise, or would you prefer to keep talking?",
   "Your feelings are valid. Let's explore what might help you feel a little lighter today.",
 ];
-
-const extractTags = (text: string) => {
-  const lower = text.toLowerCase();
-  const tags: string[] = [];
-  if (lower.includes("work") || lower.includes("boss")) tags.push("work stress");
-  if (lower.includes("sleep")) tags.push("sleep");
-  if (lower.includes("family")) tags.push("family");
-  if (lower.includes("lonely") || lower.includes("alone")) tags.push("loneliness");
-  if (lower.includes("anxious") || lower.includes("anxiety")) tags.push("anxiety");
-  if (lower.includes("sad") || lower.includes("down")) tags.push("low mood");
-  return tags;
-};
 
 const TypingIndicator = () => (
   <div className="flex items-center gap-1.5 px-4 py-3">
@@ -58,17 +54,38 @@ const Chat = () => {
   const [isSending, setIsSending] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
-  const { addChatTag, settings, chatTags, safetyPlan } = useUser();
+  const { safetyPlan } = useUser();
+  const [helplines, setHelplines] = useState<Helpline[]>([]);
+
+  useEffect(() => {
+    apiFetch<{ messages: Array<{ id: string; text: string; createdAt: string; tags?: string[]; crisis?: { severity?: string } }> }>(
+      "/api/chat",
+    )
+      .then((result) => {
+        const history = result.messages
+          .map((msg) => ({
+            id: Number(msg.createdAt ? new Date(msg.createdAt).getTime() : Date.now()),
+            text: msg.text,
+            sender: (msg as { sender?: "user" | "ai" }).sender ?? "user",
+            tags: msg.tags || [],
+            isCrisis: msg.crisis?.severity === "high",
+            createdAt: msg.createdAt,
+          }))
+          .reverse();
+        setMessages((prev) => [...prev, ...history]);
+      })
+      .catch(() => null);
+  }, []);
+
+  useEffect(() => {
+    apiFetch<{ helplines: Helpline[] }>("/api/config/helplines")
+      .then((result) => setHelplines(result.helplines || []))
+      .catch(() => setHelplines([]));
+  }, []);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
-
-
-  const detectCrisis = (text: string) => {
-    const keywords = ["suicide", "kill myself", "end it all", "self harm", "don't want to live"];
-    return keywords.some((k) => text.toLowerCase().includes(k));
-  };
 
   const planPreview = safetyPlan
     ? {
@@ -80,44 +97,49 @@ const Chat = () => {
   const handleSend = () => {
     if (!input.trim()) return;
     const userMsg: Message = { id: Date.now(), text: input.trim(), sender: "user" };
-    const isCrisis = detectCrisis(input);
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
     setIsSending(true);
 
-    const tags = extractTags(input);
-    if (tags.length && !settings.privateMode) {
-      tags.forEach((tag) => {
-        addChatTag({
-          id: `${tag}-${Date.now()}`,
-          label: tag,
-          source: "chat",
-          createdAt: new Date().toISOString(),
-        });
-      });
-    }
+    apiFetch<{ tags: string[]; crisis: { severity: string } }>("/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ text: userMsg.text }),
+    })
+      .then((result) => {
+        const isCrisis = result.crisis?.severity === "high";
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === userMsg.id ? { ...msg, tags: result.tags, isCrisis } : msg,
+          ),
+        );
 
-    setTimeout(() => {
-      setIsTyping(false);
-      setIsSending(false);
-      const context = [
-        ...chatTags.slice(0, 2).map((t) => t.label),
-        ...tags.slice(0, 1),
-      ]
-        .filter(Boolean)
-        .join(", ");
-      const aiText = isCrisis
-        ? "I'm really glad you told me. You're not alone, and there are people who want to help."
-        : `${mockResponses[Math.floor(Math.random() * mockResponses.length)]}${context ? ` I remember you have shared about ${context}.` : ""}`;
-      const aiMsg: Message = {
-        id: Date.now() + 1,
-        text: aiText,
-        sender: "ai",
-        isCrisis,
-      };
-      setMessages((prev) => [...prev, aiMsg]);
-    }, 1500);
+        return apiFetch<{ response: { text: string } }>("/api/chat/respond", {
+          method: "POST",
+          body: JSON.stringify({ text: userMsg.text }),
+        }).then((response) => ({ response, isCrisis }));
+      })
+      .then(({ response, isCrisis }) => {
+        const aiMsg: Message = {
+          id: Date.now() + 1,
+          text: response.response.text,
+          sender: "ai",
+          isCrisis,
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+      })
+      .catch(() => {
+        const aiMsg: Message = {
+          id: Date.now() + 1,
+          text: mockResponses[Math.floor(Math.random() * mockResponses.length)],
+          sender: "ai",
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+      })
+      .finally(() => {
+        setIsTyping(false);
+        setIsSending(false);
+      });
   };
 
   return (
@@ -132,14 +154,18 @@ const Chat = () => {
           {isTyping ? "Sahaay is replying…" : isFocused ? "Sahaay is listening…" : "You are safe here"}
         </div>
       </div>
-      {!!chatTags.length && (
+      {!!messages.filter((msg) => msg.tags?.length).length && (
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <Tag className="h-4 w-4" />
-          {chatTags.slice(0, 3).map((tag) => (
-            <span key={tag.id} className="rounded-full border border-border bg-surface px-2 py-1">
-              {tag.label}
-            </span>
-          ))}
+          {messages
+            .flatMap((msg) => msg.tags || [])
+            .filter(Boolean)
+            .slice(0, 3)
+            .map((tag) => (
+              <span key={tag} className="rounded-full border border-border bg-surface px-2 py-1">
+                {tag}
+              </span>
+            ))}
         </div>
       )}
       {/* Messages */}
@@ -166,8 +192,18 @@ const Chat = () => {
                   <AlertDescription className="text-sm text-foreground">
                     If you're in crisis, please reach out to a helpline.
                     <br />
-                    <strong>AASRA: 9820466726</strong> •{" "}
-                    <strong>Vandrevala Foundation: 1860-2662-345</strong>
+                    {helplines.length > 0 ? (
+                      <>
+                        {helplines.map((line, index) => (
+                          <strong key={line.name}>
+                            {line.name}: {line.number}
+                            {index < helplines.length - 1 ? " • " : ""}
+                          </strong>
+                        ))}
+                      </>
+                    ) : (
+                      <strong>Reach out to local support resources.</strong>
+                    )}
                     <br />
                     <Link to="/safety" className="mt-2 inline-flex items-center gap-2 text-sm text-primary">
                       <Phone className="h-4 w-4" />

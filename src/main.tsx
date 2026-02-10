@@ -11,3 +11,9 @@ createRoot(document.getElementById("root")!).render(
 		</UserProvider>
 	</AuthProvider>,
 );
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => null);
+  });
+}

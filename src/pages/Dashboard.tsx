@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Flame, TrendingUp, Sparkles, Bell, NotebookPen } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
+import { apiFetch } from "@/lib/api";
 import type { CheckIn, Mood, WeeklyGoal } from "@/types";
 
 const moods: { emoji: string; label: string; value: Mood }[] = [
@@ -30,6 +31,14 @@ const Dashboard = () => {
   const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
   const [goalTitle, setGoalTitle] = useState(weeklyGoal?.title ?? "");
   const [goalTarget, setGoalTarget] = useState<number>(weeklyGoal?.targetPerWeek ?? 4);
+  const [analyticsStreak, setAnalyticsStreak] = useState<number | null>(null);
+
+  useEffect(() => {
+    const timezone = settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    apiFetch<{ analytics: { streak: number } }>(`/api/analytics?timezone=${encodeURIComponent(timezone)}`)
+      .then((result) => setAnalyticsStreak(result.analytics.streak))
+      .catch(() => setAnalyticsStreak(null));
+  }, [settings.timezone]);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -68,10 +77,17 @@ const Dashboard = () => {
     return count;
   }, [checkIns]);
 
+  const streakValue = analyticsStreak ?? streak;
+
   const weeklyCount = useMemo(() => {
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 6);
-    return checkIns.filter((item) => new Date(item.createdAt) >= weekAgo).length;
+    const dayKeys = new Set(
+      checkIns
+        .filter((item) => new Date(item.createdAt) >= weekAgo)
+        .map((item) => new Date(item.createdAt).toDateString()),
+    );
+    return dayKeys.size;
   }, [checkIns]);
 
   const moodTimeline = useMemo(() => {
@@ -211,7 +227,7 @@ const Dashboard = () => {
               <Flame className="h-6 w-6 text-peach-foreground" />
             </div>
             <div>
-              <p className="font-display text-xl font-bold text-foreground">{streak} Days</p>
+              <p className="font-display text-xl font-bold text-foreground">{streakValue} Days</p>
               <p className="text-sm text-muted-foreground">Check-in streak — steady and strong.</p>
             </div>
           </CardContent>

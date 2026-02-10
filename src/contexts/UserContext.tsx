@@ -1,17 +1,8 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import {
-  DEFAULT_SETTINGS,
-  addChatTag as storeChatTag,
-  addCheckIn as storeCheckIn,
-  addJournal as storeJournal,
-  clearUserData,
-  ensureUserData,
-  type UserDataStore,
-  updateStoredUserName,
-  updateUserData,
-} from "@/lib/localStore";
-import type { ChatContextTag, CheckIn, JournalEntry, SafetyPlan, UserProfile, UserSettings, WeeklyGoal } from "@/types";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import type { CheckIn, JournalEntry, SafetyPlan, UserProfile, UserSettings, WeeklyGoal } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiFetch } from "@/lib/api";
+import { migrateLocalDataToBackend } from "@/lib/migration";
 
 interface UserContextValue {
   profile: UserProfile | null;
@@ -19,7 +10,6 @@ interface UserContextValue {
   weeklyGoal: WeeklyGoal | null;
   checkIns: CheckIn[];
   journals: JournalEntry[];
-  chatTags: ChatContextTag[];
   safetyPlan: SafetyPlan | null;
   loading: boolean;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
@@ -27,7 +17,6 @@ interface UserContextValue {
   updateWeeklyGoal: (goal: WeeklyGoal) => Promise<void>;
   addCheckIn: (checkIn: CheckIn) => Promise<void>;
   addJournalEntry: (entry: JournalEntry) => Promise<void>;
-  addChatTag: (tag: ChatContextTag) => Promise<void>;
   updateSafetyPlan: (plan: SafetyPlan) => Promise<void>;
   exportData: () => Promise<void>;
   deleteAllData: () => Promise<void>;
@@ -35,25 +24,16 @@ interface UserContextValue {
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
 
-const scheduleNotification = (time: string) => {
-  if (!("Notification" in window)) return;
-  if (Notification.permission !== "granted") return;
+const getBrowserTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
-  const [hours, minutes] = time.split(":").map(Number);
-  const now = new Date();
-  const scheduled = new Date();
-  scheduled.setHours(hours, minutes, 0, 0);
-
-  if (scheduled <= now) {
-    scheduled.setDate(scheduled.getDate() + 1);
-  }
-
-  const delay = scheduled.getTime() - now.getTime();
-  return window.setTimeout(() => {
-    new Notification("Gentle check-in", {
-      body: "How are you feeling today? A small check-in can help.",
-    });
-  }, delay);
+const DEFAULT_SETTINGS: UserSettings = {
+  fontScale: 1,
+  reduceMotion: false,
+  remindersEnabled: false,
+  reminderTime: "20:00",
+  privateMode: false,
+  offlineSync: true,
+  timezone: getBrowserTimezone(),
 };
 
 export const UserProvider = ({ children }: { children: React.ReactNode }) => {
@@ -63,10 +43,23 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const [weeklyGoal, setWeeklyGoal] = useState<WeeklyGoal | null>(null);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [journals, setJournals] = useState<JournalEntry[]>([]);
-  const [chatTags, setChatTags] = useState<ChatContextTag[]>([]);
   const [safetyPlan, setSafetyPlan] = useState<SafetyPlan | null>(null);
   const [loading, setLoading] = useState(true);
-  const reminderTimer = useRef<number | undefined>(undefined);
+
+  const mapCheckIns = (dailyDocs: Array<{ id: string; entries?: CheckIn[] }>) => {
+    const entries: CheckIn[] = [];
+    dailyDocs.forEach((doc) => {
+      (doc.entries || []).forEach((entry) => {
+        entries.push({
+          id: `${doc.id}-${entry.createdAt}`,
+          mood: entry.mood,
+          note: entry.note,
+          createdAt: entry.createdAt,
+        });
+      });
+    });
+    return entries.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  };
 
   useEffect(() => {
     if (!user) {
@@ -75,21 +68,35 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       setWeeklyGoal(null);
       setCheckIns([]);
       setJournals([]);
-      setChatTags([]);
       setSafetyPlan(null);
       setLoading(false);
       return;
     }
 
-    const stored = ensureUserData(user);
-    setProfile(stored.profile);
-    setSettings({ ...DEFAULT_SETTINGS, ...stored.settings });
-    setWeeklyGoal(stored.weeklyGoal ?? null);
-    setCheckIns(stored.checkins ?? []);
-    setJournals(stored.journals ?? []);
-    setChatTags(stored.chatTags ?? []);
-    setSafetyPlan(stored.safetyPlan ?? null);
-    setLoading(false);
+    setLoading(true);
+
+    const hydrate = async () => {
+      await migrateLocalDataToBackend(user.uid);
+      const [profileRes, settingsRes, goalRes, checkinsRes, journalsRes, planRes] = await Promise.all([
+        apiFetch<{ profile: UserProfile | null }>("/api/user/profile"),
+        apiFetch<{ settings: UserSettings | null }>("/api/user/settings"),
+        apiFetch<{ goal: WeeklyGoal | null }>("/api/weekly-goal"),
+        apiFetch<{ checkIns: Array<{ id: string; entries?: CheckIn[] }> }>("/api/checkins"),
+        apiFetch<{ entries: JournalEntry[] }>("/api/journals"),
+        apiFetch<{ plan: SafetyPlan | null }>("/api/safety-plan"),
+      ]);
+
+      setProfile(profileRes.profile ?? null);
+      setSettings({ ...DEFAULT_SETTINGS, ...(settingsRes.settings ?? {}) });
+      setWeeklyGoal(goalRes.goal ?? null);
+      setCheckIns(mapCheckIns(checkinsRes.checkIns || []));
+      setJournals(journalsRes.entries ?? []);
+      setSafetyPlan(planRes.plan ?? null);
+    };
+
+    hydrate()
+      .catch(() => null)
+      .finally(() => setLoading(false));
   }, [user]);
 
   useEffect(() => {
@@ -101,99 +108,81 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [settings.fontScale, settings.reduceMotion]);
 
-  useEffect(() => {
-    if (reminderTimer.current) {
-      window.clearTimeout(reminderTimer.current);
-    }
-    if (settings.remindersEnabled) {
-      reminderTimer.current = scheduleNotification(settings.reminderTime);
-    }
-  }, [settings.reminderTime, settings.remindersEnabled]);
-
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) return;
-    ensureUserData(user);
-    const nextProfile: UserProfile = {
-      ...(profile ?? {
-        id: user.uid,
-        name: user.displayName ?? "",
-        email: user.email ?? "",
-        goals: [],
-        baselineMood: "neutral",
-        createdAt: new Date().toISOString(),
-        onboardingComplete: false,
-      }),
-      ...updates,
-    };
-    updateUserData(user.uid, { profile: nextProfile });
-    setProfile(nextProfile);
-    if (typeof nextProfile.name === "string") {
-      updateStoredUserName(user.uid, nextProfile.name);
-    }
+    const result = await apiFetch<{ profile: UserProfile | null }>("/api/user/profile", {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    });
+    setProfile(result.profile ?? null);
   };
 
   const updateSettings = async (updates: Partial<UserSettings>) => {
     if (!user) return;
-    ensureUserData(user);
-    const nextSettings: UserSettings = {
-      ...settings,
-      ...updates,
-    };
-    updateUserData(user.uid, { settings: nextSettings });
+    const timezone = updates.timezone || settings.timezone || getBrowserTimezone();
+    const result = await apiFetch<{ settings: UserSettings | null }>("/api/user/settings", {
+      method: "PUT",
+      body: JSON.stringify({ ...updates, timezone }),
+    });
+    const nextSettings = { ...DEFAULT_SETTINGS, ...(result.settings ?? {}) };
     setSettings(nextSettings);
+    if (typeof updates.remindersEnabled === "boolean" || typeof updates.reminderTime === "string") {
+      await apiFetch("/api/notifications/reminder", {
+        method: "POST",
+        body: JSON.stringify({
+          enabled: nextSettings.remindersEnabled,
+          time: nextSettings.reminderTime,
+          timezone: nextSettings.timezone || timezone,
+        }),
+      });
+    }
   };
 
   const updateWeeklyGoal = async (goal: WeeklyGoal) => {
     if (!user) return;
-    ensureUserData(user);
-    updateUserData(user.uid, { weeklyGoal: goal });
-    setWeeklyGoal(goal);
+    const result = await apiFetch<{ goal: WeeklyGoal | null }>("/api/weekly-goal", {
+      method: "PUT",
+      body: JSON.stringify(goal),
+    });
+    setWeeklyGoal(result.goal ?? goal);
   };
 
   const addCheckIn = async (checkIn: CheckIn) => {
     if (!user) return;
-    ensureUserData(user);
-    storeCheckIn(user.uid, checkIn);
+    const timezone = settings.timezone || getBrowserTimezone();
+    await apiFetch("/api/checkins", {
+      method: "POST",
+      body: JSON.stringify({
+        mood: checkIn.mood,
+        note: checkIn.note,
+        timezone,
+      }),
+    });
     setCheckIns((prev) => [checkIn, ...prev]);
   };
 
   const addJournalEntry = async (entry: JournalEntry) => {
     if (!user) return;
-    ensureUserData(user);
-    storeJournal(user.uid, entry);
-    setJournals((prev) => [entry, ...prev]);
-  };
-
-  const addChatTag = async (tag: ChatContextTag) => {
-    if (!user) return;
-    if (settings.privateMode) return;
-    ensureUserData(user);
-    storeChatTag(user.uid, tag);
-    setChatTags((prev) => [tag, ...prev]);
+    const result = await apiFetch<{ entry: JournalEntry }>("/api/journals", {
+      method: "POST",
+      body: JSON.stringify(entry),
+    });
+    setJournals((prev) => [result.entry, ...prev]);
   };
 
   const updateSafetyPlan = async (plan: SafetyPlan) => {
     if (!user) return;
-    ensureUserData(user);
     const nextPlan = { ...plan, updatedAt: new Date().toISOString() };
-    updateUserData(user.uid, { safetyPlan: nextPlan });
-    setSafetyPlan(nextPlan);
+    const result = await apiFetch<{ plan: SafetyPlan | null }>("/api/safety-plan", {
+      method: "PUT",
+      body: JSON.stringify(nextPlan),
+    });
+    setSafetyPlan(result.plan ?? nextPlan);
   };
 
   const exportData = async () => {
     if (!user) return;
-    const stored = ensureUserData(user);
-    const exportPayload: UserDataStore = {
-      ...stored,
-      profile: profile ?? stored.profile,
-      settings: settings ?? stored.settings,
-      weeklyGoal: weeklyGoal ?? stored.weeklyGoal,
-      checkins: checkIns.length ? checkIns : stored.checkins,
-      journals: journals.length ? journals : stored.journals,
-      chatTags: chatTags.length ? chatTags : stored.chatTags,
-      safetyPlan: safetyPlan ?? stored.safetyPlan,
-    };
-
+    const exportPayload = await apiFetch<unknown>("/api/user/export");
     const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -207,13 +196,12 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
   const deleteAllData = async () => {
     if (!user) return;
-    clearUserData(user.uid);
+    await apiFetch("/api/user", { method: "DELETE" });
     setProfile(null);
     setSettings({ ...DEFAULT_SETTINGS });
     setWeeklyGoal(null);
     setCheckIns([]);
     setJournals([]);
-    setChatTags([]);
     setSafetyPlan(null);
   };
 
@@ -224,7 +212,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       weeklyGoal,
       checkIns,
       journals,
-      chatTags,
       safetyPlan,
       loading,
       updateProfile,
@@ -232,12 +219,11 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       updateWeeklyGoal,
       addCheckIn,
       addJournalEntry,
-      addChatTag,
       updateSafetyPlan,
       exportData,
       deleteAllData,
     }),
-    [profile, settings, weeklyGoal, checkIns, journals, chatTags, safetyPlan, loading],
+    [profile, settings, weeklyGoal, checkIns, journals, safetyPlan, loading],
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
