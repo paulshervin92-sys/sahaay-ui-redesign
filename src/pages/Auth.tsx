@@ -1,18 +1,37 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sparkles, Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const navigate = useNavigate();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { signIn, signUp } = useAuth();
+  const { toast } = useToast();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate("/dashboard");
+    if (!email || !password || (!isLogin && !name)) {
+      toast({ title: "Please fill in all fields." });
+      return;
+    }
+    setLoading(true);
+    const action = isLogin ? signIn(email, password) : signUp(email, password, name);
+    action
+      .then(() => {
+        // App routing decides onboarding vs dashboard based on local state.
+      })
+      .catch((error) => {
+        toast({ title: "Authentication failed", description: error.message });
+      })
+      .finally(() => setLoading(false));
   };
 
   return (
@@ -25,7 +44,7 @@ const Auth = () => {
               <Sparkles className="h-7 w-7" />
             </div>
             <h1 className="font-display text-2xl font-bold text-foreground">
-              Sahaay-AI
+              Sahaay
             </h1>
             <p className="text-center text-sm text-muted-foreground">
               You're safe here. Let's take care of your mind. 🌿
@@ -40,6 +59,8 @@ const Auth = () => {
                 </Label>
                 <Input
                   id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   placeholder="What should we call you?"
                   className="rounded-xl border-border/60 bg-background/60 h-12"
                 />
@@ -53,6 +74,8 @@ const Auth = () => {
               <Input
                 id="email"
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
                 className="rounded-xl border-border/60 bg-background/60 h-12"
               />
@@ -66,6 +89,8 @@ const Auth = () => {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="rounded-xl border-border/60 bg-background/60 h-12 pr-10"
                 />
@@ -73,6 +98,7 @@ const Auth = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -81,9 +107,10 @@ const Auth = () => {
 
             <Button
               type="submit"
+              disabled={loading}
               className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-medium text-base shadow-md hover:shadow-lg transition-all"
             >
-              {isLogin ? "Welcome back" : "Start your journey"}
+              {loading ? "Please wait..." : isLogin ? "Welcome back" : "Start your journey"}
             </Button>
           </form>
 
@@ -96,6 +123,9 @@ const Auth = () => {
                 ? "New here? Create an account"
                 : "Already have an account? Sign in"}
             </button>
+            <p className="mt-3 text-xs text-muted-foreground">
+              We keep your space private and gentle.
+            </p>
           </div>
         </div>
       </div>

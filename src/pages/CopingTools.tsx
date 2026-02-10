@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Wind, Mountain, Sparkles, Dumbbell, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useUser } from "@/contexts/UserContext";
 
 const tools = [
   {
@@ -46,6 +47,16 @@ const affirmations = [
 const CopingTools = () => {
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [breathPhase, setBreathPhase] = useState<"idle" | "inhale" | "hold" | "exhale">("idle");
+  const { profile } = useUser();
+  const [moodFocus, setMoodFocus] = useState<"anxious" | "sad" | "happy" | "neutral">(
+    profile?.baselineMood === "anxious"
+      ? "anxious"
+      : profile?.baselineMood === "sad"
+        ? "sad"
+        : profile?.baselineMood === "happy"
+          ? "happy"
+          : "neutral",
+  );
 
   const startBreathing = () => {
     setBreathPhase("inhale");
@@ -54,23 +65,54 @@ const CopingTools = () => {
     setTimeout(() => setBreathPhase("inhale"), 12000);
   };
 
+  const prioritizedTools = [...tools].sort((a, b) => {
+    if (moodFocus === "anxious") return a.type === "breathing" ? -1 : b.type === "breathing" ? 1 : 0;
+    if (moodFocus === "sad") return a.type === "affirmations" ? -1 : b.type === "affirmations" ? 1 : 0;
+    if (moodFocus === "happy") return a.type === "exercises" ? -1 : b.type === "exercises" ? 1 : 0;
+    return 0;
+  });
+
   return (
     <div className="mx-auto max-w-4xl space-y-8 animate-fade-in">
-      <h1 className="font-display text-2xl font-bold text-foreground">Coping Tools</h1>
-      <p className="text-muted-foreground">Pick a tool that feels right for you right now.</p>
+      <div>
+        <h1 className="font-display text-2xl font-bold text-foreground">Ways to feel better</h1>
+        <p className="text-muted-foreground">Pick a tool that feels right for you right now.</p>
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+        {[
+          { label: "Anxious", value: "anxious" },
+          { label: "Sad", value: "sad" },
+          { label: "Happy", value: "happy" },
+          { label: "Not sure", value: "neutral" },
+        ].map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => setMoodFocus(item.value as "anxious" | "sad" | "happy" | "neutral")}
+            className={`rounded-full border px-3 py-1.5 transition-all ${
+              moodFocus === item.value
+                ? "border-primary/40 bg-primary/10 text-foreground"
+                : "border-border bg-surface text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {tools.map((tool) => (
+        {prioritizedTools.map((tool) => (
           <Card
             key={tool.title}
-            className="group cursor-pointer rounded-2xl border-border/50 shadow-sm transition-all hover:shadow-md hover:scale-[1.02]"
+            className="card-elevated group cursor-pointer rounded-2xl"
             onClick={() => {
               setActiveTool(tool.type);
               if (tool.type === "breathing") startBreathing();
             }}
           >
             <CardContent className="flex items-start gap-4 p-6">
-              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${tool.color} transition-transform group-hover:scale-110`}>
+              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${tool.color} transition-transform group-hover:scale-110 icon-tilt`}>
                 <tool.icon className="h-6 w-6" />
               </div>
               <div>

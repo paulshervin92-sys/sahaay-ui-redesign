@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
+import { useUser } from "@/contexts/UserContext";
 
 const weeklyData = [
   { day: "Mon", mood: 7, stress: 4 },
@@ -28,15 +29,67 @@ const insights = [
   "Your overall mood has improved 12% this month.",
 ];
 
+const moodEmojis: Record<string, string> = {
+  happy: "😊",
+  calm: "😌",
+  neutral: "😐",
+  sad: "😔",
+  anxious: "😰",
+  frustrated: "😤",
+};
+
 const Analytics = () => {
   const [range, setRange] = useState("weekly");
+  const { settings, checkIns } = useUser();
   const data = range === "weekly" ? weeklyData : monthlyData;
   const xKey = range === "weekly" ? "day" : "week";
 
+  const weeklySummary = useMemo(() => {
+    if (!checkIns.length) return "Keep going — your mood story will appear here soon.";
+    const lastSeven = checkIns.slice(0, 7);
+    const avg = lastSeven.reduce((sum, item) => sum + (item.mood === "happy" ? 4 : item.mood === "calm" ? 3 : item.mood === "neutral" ? 2 : 1), 0) / lastSeven.length;
+    return avg >= 3 ? "Your week leaned lighter and calmer overall." : "This week felt heavier — be gentle with yourself.";
+  }, [checkIns]);
+
+  const calendarDays = useMemo(() => {
+    const days = checkIns.slice(0, 14).reverse().map((item) => {
+      const day = new Date(item.createdAt).toLocaleDateString(undefined, { weekday: "short" });
+      return {
+        id: item.id,
+        day,
+        mood: item.mood,
+        emoji: moodEmojis[item.mood] ?? "🙂",
+      };
+    });
+    return days;
+  }, [checkIns]);
+
+  const bestTime = useMemo(() => {
+    if (!checkIns.length) return "Not enough check-ins yet.";
+    const buckets = { morning: 0, afternoon: 0, evening: 0 };
+    const counts = { morning: 0, afternoon: 0, evening: 0 };
+    checkIns.slice(0, 14).forEach((item) => {
+      const hour = new Date(item.createdAt).getHours();
+      const key = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
+      const score = item.mood === "happy" ? 4 : item.mood === "calm" ? 3 : item.mood === "neutral" ? 2 : 1;
+      buckets[key] += score;
+      counts[key] += 1;
+    });
+    const averages = Object.keys(buckets).map((key) => ({
+      key,
+      value: counts[key as keyof typeof counts] ? buckets[key as keyof typeof buckets] / counts[key as keyof typeof counts] : 0,
+    }));
+    const top = averages.sort((a, b) => b.value - a.value)[0];
+    return top?.value ? `${top.key} tends to feel best for you.` : "Not enough data yet.";
+  }, [checkIns]);
+
   return (
     <div className="mx-auto max-w-4xl space-y-8 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold text-foreground">Mood Analytics</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-foreground">Your mood journey</h1>
+          <p className="text-sm text-muted-foreground">Gentle patterns and progress over time.</p>
+        </div>
         <Tabs value={range} onValueChange={setRange}>
           <TabsList className="rounded-xl">
             <TabsTrigger value="weekly" className="rounded-lg">Weekly</TabsTrigger>
@@ -46,32 +99,32 @@ const Analytics = () => {
       </div>
 
       {/* Mood Line Chart */}
-      <Card className="rounded-2xl border-border/50 shadow-sm">
+      <Card className="card-elevated rounded-2xl">
         <CardContent className="p-6">
-          <h3 className="mb-4 font-display text-sm font-semibold text-muted-foreground uppercase tracking-wider">Mood Trend</h3>
+          <h3 className="mb-4 font-display text-sm font-semibold text-muted-foreground uppercase tracking-wider">Mood trend</h3>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 15% 90%)" />
-              <XAxis dataKey={xKey} tick={{ fontSize: 12 }} stroke="hsl(230 10% 50%)" />
-              <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} stroke="hsl(230 10% 50%)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey={xKey} tick={{ fontSize: 12 }} stroke="hsl(var(--text-muted))" />
+              <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} stroke="hsl(var(--text-muted))" />
               <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }} />
-              <Line type="monotone" dataKey="mood" stroke="hsl(245 58% 61%)" strokeWidth={3} dot={{ r: 5, fill: "hsl(245 58% 61%)" }} />
+              <Line type="monotone" dataKey="mood" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 5, fill: "hsl(var(--primary))" }} />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
       {/* Stress Bar Chart */}
-      <Card className="rounded-2xl border-border/50 shadow-sm">
+      <Card className="card-elevated rounded-2xl">
         <CardContent className="p-6">
-          <h3 className="mb-4 font-display text-sm font-semibold text-muted-foreground uppercase tracking-wider">Stress Levels</h3>
+          <h3 className="mb-4 font-display text-sm font-semibold text-muted-foreground uppercase tracking-wider">Stress levels</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 15% 90%)" />
-              <XAxis dataKey={xKey} tick={{ fontSize: 12 }} stroke="hsl(230 10% 50%)" />
-              <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} stroke="hsl(230 10% 50%)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey={xKey} tick={{ fontSize: 12 }} stroke="hsl(var(--text-muted))" />
+              <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} stroke="hsl(var(--text-muted))" />
               <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }} />
-              <Bar dataKey="stress" fill="hsl(25 85% 74%)" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="stress" fill="hsl(var(--peach))" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -79,16 +132,44 @@ const Analytics = () => {
 
       {/* Insights */}
       <section>
-        <h2 className="mb-4 font-display text-lg font-semibold text-foreground">Insights</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {insights.map((text, i) => (
-            <Card key={i} className="rounded-2xl border-border/50 shadow-sm">
-              <CardContent className="p-5">
-                <p className="text-sm font-medium text-foreground leading-relaxed">{text}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <h2 className="mb-4 font-display text-lg font-semibold text-foreground">Gentle observations</h2>
+        {settings.privateMode ? (
+          <Card className="card-elevated rounded-2xl">
+            <CardContent className="p-5 text-sm text-muted-foreground">
+              Private mode is on. Insights will appear once you sync your check-ins.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[weeklySummary, bestTime, ...insights].map((text, i) => (
+              <Card key={i} className="card-elevated rounded-2xl">
+                <CardContent className="p-5">
+                  <p className="text-sm font-medium text-foreground leading-relaxed">{text}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2 className="mb-4 font-display text-lg font-semibold text-foreground">Mood calendar</h2>
+        <Card className="card-elevated rounded-2xl">
+          <CardContent className="p-6">
+            {calendarDays.length ? (
+              <div className="grid grid-cols-7 gap-2 text-center text-sm">
+                {calendarDays.map((day) => (
+                  <div key={day.id} className="rounded-2xl border border-border bg-surface px-2 py-3">
+                    <div className="text-xs text-muted-foreground">{day.day}</div>
+                    <div className="mt-1 text-lg" aria-label={day.mood}>{day.emoji}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Check in to see your calendar here.</p>
+            )}
+          </CardContent>
+        </Card>
       </section>
     </div>
   );
