@@ -23,6 +23,7 @@ export interface UserSettings {
 export interface CheckIn {
   id: string;
   mood: Mood;
+  moodLabel?: string | null;
   note?: string;
   createdAt: string;
 }

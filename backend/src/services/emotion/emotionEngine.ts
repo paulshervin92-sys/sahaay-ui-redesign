@@ -10,6 +10,12 @@ export interface EmotionResult {
   usedFallback: boolean;
 }
 
+export const buildMoodLabel = (emotion: EmotionResult) => {
+  if (!emotion.secondary?.length) return emotion.primary;
+  if (emotion.confidence >= 0.75) return emotion.primary;
+  return `${emotion.primary}/${emotion.secondary[0]}`;
+};
+
 const keywordWeights: Record<EmotionLabel, string[]> = {
   happy: ["happy", "grateful", "excited", "joy"],
   calm: ["calm", "relaxed", "steady", "peace"],

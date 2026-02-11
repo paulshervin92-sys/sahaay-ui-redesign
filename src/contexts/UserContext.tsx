@@ -53,6 +53,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         entries.push({
           id: `${doc.id}-${entry.createdAt}`,
           mood: entry.mood,
+          moodLabel: entry.moodLabel ?? null,
           note: entry.note,
           createdAt: entry.createdAt,
         });
@@ -158,7 +159,11 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         timezone,
       }),
     });
-    setCheckIns((prev) => [checkIn, ...prev]);
+    setCheckIns((prev) => {
+      const dayKey = new Date(checkIn.createdAt).toDateString();
+      const filtered = prev.filter((item) => new Date(item.createdAt).toDateString() !== dayKey);
+      return [checkIn, ...filtered];
+    });
   };
 
   const addJournalEntry = async (entry: JournalEntry) => {

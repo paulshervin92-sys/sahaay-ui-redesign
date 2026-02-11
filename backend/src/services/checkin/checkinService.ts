@@ -8,6 +8,7 @@ export interface CheckInInput {
   note?: string;
   sentimentScore?: number;
   createdAt?: string;
+  moodLabel?: string;
 }
 
 const dailyCollection = () => getFirestore().collection("checkinsDaily");
@@ -21,6 +22,7 @@ export const upsertDailyCheckIn = async (userId: string, timezone: string, input
 
   const entry = {
     mood: input.mood,
+    moodLabel: input.moodLabel ?? null,
     note: input.note ?? "",
     sentimentScore: typeof input.sentimentScore === "number" ? input.sentimentScore : null,
     createdAt: createdAt.toISOString(),
@@ -38,17 +40,14 @@ export const upsertDailyCheckIn = async (userId: string, timezone: string, input
     return { dayKey, entryCount: 1 };
   }
 
-  const data = snap.data() ?? {};
-  const entries = Array.isArray(data.entries) ? data.entries : [];
-  entries.unshift(entry);
-
   await docRef.update({
-    entries,
+    entries: [entry],
     lastMood: input.mood,
+    lastMoodLabel: input.moodLabel ?? null,
     updatedAt: new Date().toISOString(),
   });
 
-  return { dayKey, entryCount: entries.length };
+  return { dayKey, entryCount: 1 };
 };
 
 export interface DailyCheckInRecord {
@@ -58,6 +57,7 @@ export interface DailyCheckInRecord {
   timezone: string;
   entries: CheckInInput[];
   lastMood: Mood;
+  lastMoodLabel?: string | null;
   updatedAt: string;
 }
 

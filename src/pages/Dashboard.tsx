@@ -32,6 +32,7 @@ const Dashboard = () => {
   const [goalTitle, setGoalTitle] = useState(weeklyGoal?.title ?? "");
   const [goalTarget, setGoalTarget] = useState<number>(weeklyGoal?.targetPerWeek ?? 4);
   const [analyticsStreak, setAnalyticsStreak] = useState<number | null>(null);
+  const [dailySummary, setDailySummary] = useState<string | null>(null);
 
   useEffect(() => {
     const timezone = settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -39,6 +40,12 @@ const Dashboard = () => {
       .then((result) => setAnalyticsStreak(result.analytics.streak))
       .catch(() => setAnalyticsStreak(null));
   }, [settings.timezone]);
+
+  useEffect(() => {
+    apiFetch<{ summary: { summary?: string } | null }>("/api/chat/summary/today")
+      .then((result) => setDailySummary(result.summary?.summary ?? null))
+      .catch(() => setDailySummary(null));
+  }, []);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -55,6 +62,7 @@ const Dashboard = () => {
   }, [weeklyGoal]);
 
   const latestMood = checkIns[0]?.mood ?? profile?.baselineMood ?? "neutral";
+  const latestMoodLabel = checkIns[0]?.moodLabel || latestMood;
 
   const streak = useMemo(() => {
     if (!checkIns.length) return 0;
@@ -240,7 +248,7 @@ const Dashboard = () => {
             </div>
             <div>
               <p className="font-display text-xl font-bold text-foreground">Mood focus</p>
-              <p className="text-sm text-muted-foreground">Latest mood: {latestMood}</p>
+              <p className="text-sm text-muted-foreground">Latest mood: {latestMoodLabel}</p>
             </div>
           </CardContent>
         </Card>
@@ -256,6 +264,15 @@ const Dashboard = () => {
             <Button onClick={() => navigate("/safety")} className="rounded-xl">
               Open safety plan
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {dailySummary && (
+        <Card className="card-elevated rounded-2xl">
+          <CardContent className="p-6">
+            <p className="text-sm font-semibold text-foreground">Today’s chat summary</p>
+            <p className="mt-2 text-sm text-muted-foreground">{dailySummary}</p>
           </CardContent>
         </Card>
       )}
