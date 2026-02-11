@@ -149,7 +149,7 @@ This repo contains a frontend (Vite) and a backend (Express). Deploy them as sep
 	- `npm install ; npm run build`
 4. Set **Start Command** to:
 	- `npm run start`
-5. Add required environment variables in Render (match your backend `.env.example`).
+5. Add required environment variables in Render (see list below).
 6. Deploy and copy the public service URL.
 	- Current backend URL: https://sahaay-ai-y9v3.onrender.com
 
