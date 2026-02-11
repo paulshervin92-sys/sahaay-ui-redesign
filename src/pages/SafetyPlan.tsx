@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Phone, ShieldAlert, Plus, Trash2 } from "lucide-react";
+import { Phone, Plus, Trash2 } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import type { SafetyContact, SafetyPlan, SafetyResource } from "@/types";
 import { apiFetch } from "@/lib/api";
@@ -127,26 +127,6 @@ const SafetyPlanPage = () => {
           {savedAt ? `Saved ${savedAt}` : "Not saved yet"}
         </div>
       </div>
-
-      <Card className="card-elevated rounded-2xl">
-        <CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-danger/10 text-danger">
-              <ShieldAlert className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">Immediate steps</p>
-              <p className="text-xs text-muted-foreground">Pick one small step to feel safer.</p>
-            </div>
-          </div>
-          <ul className="space-y-2 text-sm text-foreground">
-            <li>1. Move to a quieter space if you can.</li>
-            <li>2. Take 5 slow breaths. Count each exhale.</li>
-            <li>3. Reach out to someone you trust.</li>
-            <li>4. Call a helpline if you need immediate support.</li>
-          </ul>
-        </CardContent>
-      </Card>
 
       <Card className="card-elevated rounded-2xl">
         <CardContent className="p-6 space-y-4">

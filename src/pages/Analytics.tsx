@@ -38,7 +38,9 @@ const Analytics = () => {
   const weeklyData = sentimentDays.slice(0, 7).reverse().map((day) => {
     const label = new Date(`${day.dayKey}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" });
     const mood = Math.round(day.sentiment * 10);
-    return { day: label, mood, stress: Math.max(0, 10 - mood) };
+    const moodLabel = day.normalizedMood || "neutral";
+    const emoji = moodEmojis[moodLabel] || "😐";
+    return { day: label, mood, stress: Math.max(0, 10 - mood), moodLabel, emoji };
   });
 
   const monthlyData = (() => {
@@ -104,12 +106,44 @@ const Analytics = () => {
     return top?.value ? `${top.key} tends to feel best for you.` : "Not enough data yet.";
   }, [checkIns]);
 
+  const bestDayOfWeek = useMemo(() => {
+    if (!checkIns.length) return "Not enough data yet.";
+    const dayScores: Record<string, { total: number; count: number }> = {};
+    checkIns.slice(0, 30).forEach((item) => {
+      const dayName = new Date(item.createdAt).toLocaleDateString(undefined, { weekday: 'long' });
+      const score = item.mood === "happy" ? 4 : item.mood === "calm" ? 3 : item.mood === "neutral" ? 2 : 1;
+      if (!dayScores[dayName]) dayScores[dayName] = { total: 0, count: 0 };
+      dayScores[dayName].total += score;
+      dayScores[dayName].count += 1;
+    });
+    const averages = Object.entries(dayScores).map(([day, data]) => ({
+      day,
+      avg: data.total / data.count,
+    }));
+    if (!averages.length) return "Not enough data yet.";
+    const best = averages.sort((a, b) => b.avg - a.avg)[0];
+    return best.avg >= 3 ? `${best.day}s tend to be your brightest days.` : "Keep tracking to see your patterns emerge.";
+  }, [checkIns]);
+
+  const moodTrend = useMemo(() => {
+    if (checkIns.length < 3) return "Keep checking in to see your mood trend.";
+    const recent = checkIns.slice(0, 7);
+    const older = checkIns.slice(7, 14);
+    if (!older.length) return `You've checked in ${checkIns.length} times — you're building a great habit!`;
+    const recentAvg = recent.reduce((sum, item) => sum + (item.mood === "happy" ? 4 : item.mood === "calm" ? 3 : item.mood === "neutral" ? 2 : 1), 0) / recent.length;
+    const olderAvg = older.reduce((sum, item) => sum + (item.mood === "happy" ? 4 : item.mood === "calm" ? 3 : item.mood === "neutral" ? 2 : 1), 0) / older.length;
+    const diff = recentAvg - olderAvg;
+    if (diff > 0.5) return "Your mood has been lifting lately — keep going!";
+    if (diff < -0.5) return "Things feel heavier recently — remember to be gentle with yourself.";
+    return "Your mood has been steady — that's a sign of resilience.";
+  }, [checkIns]);
+
   const insights = [
     analytics?.averageSentiment
-      ? `Average sentiment this period: ${Math.round(analytics.averageSentiment * 100)}%.`
-      : "Your stress levels tend to peak mid-week.",
-    `Current streak: ${analytics?.streak ?? 0} days.`,
-    "Weekends are your happiest days — you're doing great! 🌟",
+      ? `Your overall positivity score this period: ${Math.round(analytics.averageSentiment * 100)}%.`
+      : moodTrend,
+    `Current streak: ${analytics?.streak ?? 0} day${analytics?.streak === 1 ? '' : 's'}.`,
+    bestDayOfWeek,
   ];
 
   return (
@@ -136,7 +170,15 @@ const Analytics = () => {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey={xKey} tick={{ fontSize: 12 }} stroke="hsl(var(--text-muted))" />
               <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} stroke="hsl(var(--text-muted))" />
-              <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }} />
+              <Tooltip 
+                contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
+                formatter={(value: any, name: any, props: any) => {
+                  if (name === "mood" && props.payload.moodLabel) {
+                    return [`${props.payload.emoji} ${props.payload.moodLabel}`, "mood"];
+                  }
+                  return [value, name];
+                }}
+              />
               <Line type="monotone" dataKey="mood" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 5, fill: "hsl(var(--primary))" }} />
             </LineChart>
           </ResponsiveContainer>

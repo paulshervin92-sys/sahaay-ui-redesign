@@ -271,7 +271,7 @@ const Dashboard = () => {
       {dailySummary && (
         <Card className="card-elevated rounded-2xl">
           <CardContent className="p-6">
-            <p className="text-sm font-semibold text-foreground">Today’s chat summary</p>
+            <p className="text-sm font-semibold text-foreground">What we talked about today</p>
             <p className="mt-2 text-sm text-muted-foreground">{dailySummary}</p>
           </CardContent>
         </Card>

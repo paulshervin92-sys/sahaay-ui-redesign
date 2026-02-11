@@ -47,9 +47,9 @@ export const generateDailySummary = async (
   const transcript = buildTranscript(messages.slice(-30));
   const messagesCount = messages.length;
 
-  const defaultSummary = safeDefaultResponse("You shared a few thoughts today. Keep checking in with how you are feeling.");
+  const defaultSummary = safeDefaultResponse("You shared some thoughts with me today. It's great that you're checking in with yourself.");
 
-  const prompt = `Summarize today's conversation in 3-5 sentences. Mention the overall emotional tone and key topics. Return JSON with {"summary": "...", "topEmotions": ["..."]}.\n\nTranscript:\n${transcript}`;
+  const prompt = `You are a supportive mental health companion. Summarize today's conversation in 2-4 sentences using a warm, conversational tone. Address the user directly using "you" and "your". Reflect back what they shared and acknowledge their emotions. Return JSON with {"summary": "...", "topEmotions": ["..."]}.\n\nConversation:\n${transcript}`;
 
   const result = await runWithFallback(
     [
