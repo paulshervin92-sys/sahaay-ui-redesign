@@ -23,7 +23,29 @@ import { adminRoutes } from "./routes/adminRoutes.js";
 export const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+
+// CORS configuration for both web and mobile apps
+const allowedOrigins = [
+  env.CORS_ORIGIN,              // Web frontend
+  'http://localhost:8081',      // React Native Metro bundler
+  'http://10.0.2.2:8081',      // Android emulator
+  'capacitor://localhost',      // Capacitor (if used)
+];
+
+app.use(cors({ 
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or Postman)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all for development - tighten in production
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

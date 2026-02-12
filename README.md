@@ -9,37 +9,43 @@ Sahaay is a mental health support platform that blends daily check-ins, guided c
 - Onboarding flow that helps users set goals, preferences, and safety context.
 - Session handling on the client with a clear separation of auth and user data contexts.
 
-### Daily mood check-ins
-- Users record mood and intensity to build a daily emotional baseline.
-- Check-ins are stored locally and used as a primary signal for personalization.
-- Mood intensity guides whether the app recommends gentle or high-impact tools.
+### Emotion-aware conversation layer
+- Natural, structured conversations adapt to emotional tone and context in real time.
+- Detects signals like stress, anxiety, low mood, and crisis indicators from user inputs.
+- Responses remain empathetic, context-aware, and aligned with clinical safety guardrails.
 
-### Explainable AI coping tool recommendations
-- Rule-based scoring (0 to 100) combines mood fit, intensity match, duration, and chat sentiment.
-- Each recommended tool surfaces a human-readable explanation so users know why it was suggested.
-- Designed with a migration path to LLM-based scoring while keeping clinical guardrails.
+### Daily mood check-ins and emotional baseline tracking
+- Daily mood and intensity logging builds a reliable emotional baseline over time.
+- Trend tracking highlights fluctuations, recurring patterns, and early warning signals.
+- Intensity levels influence whether the system recommends lighter reflections or active coping.
 
-### Guided coping exercises
-- Evidence-based techniques across breathing, grounding, cognitive, reflection, and movement categories.
-- Clear, short instructions and time-boxed sessions to reduce overwhelm.
-- Tool metadata includes supported moods, intensity level, and duration for smarter filtering.
+### Explainable AI recommendation engine
+- Transparent scoring balances mood compatibility, emotional intensity, sentiment, and time fit.
+- Every recommendation includes a clear rationale to build user trust and accountability.
+- Remains auditable and safe, avoiding opaque, black-box suggestions.
 
-### Chat with sentiment-aware context
-- Recent chat messages feed into the recommendation context (e.g., anxiety keywords bias toward breathing and grounding).
-- Sentiment categories include crisis, low mood, and stress indicators.
-- Context is used to prioritize tools without exposing raw chat content.
+### Guided micro-interventions
+- Short, evidence-based tools (breathing, grounding, reframing, journaling, movement) for quick relief.
+- Time-boxed formats fit student and professional schedules with low friction.
+- Consistent structure reduces overwhelm and encourages steady engagement.
 
 ### Journaling
 - Structured entries to help users reflect on thoughts and patterns.
 - Designed to pair with coping tools and check-ins for better continuity.
 
-### Safety plan
-- A dedicated space for crisis preparedness and grounding resources.
-- Encourages proactive planning and quick access to support steps.
+### Safety and crisis preparedness layer
+- Detects high-risk emotional signals and triggers structured safety guidance.
+- Supports proactive planning with accessible, step-by-step support resources.
+- Responsible AI safeguards prioritize user wellbeing and ethical boundaries.
 
 ### Community
 - Peer support space for shared experiences and encouragement.
 - Designed to complement self-guided tools with social connection.
+
+### Institutional analytics and wellbeing insights
+- Privacy-preserving, anonymized trend analytics for schools and workplaces.
+- Surfaces patterns like rising stress, burnout clusters, and engagement gaps.
+- Enables preventive, data-driven support without exposing individual data.
 
 ### Analytics and insights
 - Charts and summaries that help users notice trends over time.

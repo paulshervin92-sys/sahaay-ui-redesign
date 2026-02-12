@@ -8,7 +8,17 @@ export interface AuthRequest extends Request {
 }
 
 export const requireAuth = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  const sessionId = req.cookies?.[env.SESSION_COOKIE_NAME];
+  // Support both cookie-based (web) and token-based (mobile) authentication
+  let sessionId = req.cookies?.[env.SESSION_COOKIE_NAME];
+  
+  // If no cookie, check Authorization header (for mobile app)
+  if (!sessionId && req.headers.authorization) {
+    const authHeader = req.headers.authorization;
+    if (authHeader.startsWith('Bearer ')) {
+      sessionId = authHeader.substring(7); // Remove 'Bearer ' prefix
+    }
+  }
+  
   if (!sessionId) {
     return res.status(401).json({ error: "unauthorized" });
   }

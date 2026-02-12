@@ -16,20 +16,46 @@ export const register = async (req: Request, res: Response) => {
   const { email, password, displayName } = req.body as { email: string; password: string; displayName?: string };
   const user = await registerUser(email, password, displayName);
   const session = await createSession(user.userId);
+  
+  // Set cookie for web app (backward compatible)
   res.cookie(env.SESSION_COOKIE_NAME, session.sessionId, getCookieOptions());
-  return res.json({ user });
+  
+  // Return token in response body for mobile app
+  return res.json({ 
+    user,
+    token: session.sessionId,  // Mobile app uses this
+    session: session.sessionId // For compatibility
+  });
 };
 
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body as { email: string; password: string };
   const user = await authenticateUser(email, password);
   const session = await createSession(user.userId);
+  
+  // Set cookie for web app (backward compatible)
   res.cookie(env.SESSION_COOKIE_NAME, session.sessionId, getCookieOptions());
-  return res.json({ user });
+  
+  // Return token in response body for mobile app
+  return res.json({ 
+    user,
+    token: session.sessionId,  // Mobile app uses this
+    session: session.sessionId // For compatibility
+  });
 };
 
 export const logout = async (req: AuthRequest, res: Response) => {
-  const sessionId = req.cookies?.[env.SESSION_COOKIE_NAME];
+  // Support both cookie and token-based auth
+  let sessionId = req.cookies?.[env.SESSION_COOKIE_NAME];
+  
+  // Check Authorization header for mobile
+  if (!sessionId && req.headers.authorization) {
+    const authHeader = req.headers.authorization;
+    if (authHeader.startsWith('Bearer ')) {
+      sessionId = authHeader.substring(7);
+    }
+  }
+  
   if (sessionId) {
     await deleteSession(sessionId);
   }
