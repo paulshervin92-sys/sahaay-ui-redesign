@@ -5,5 +5,6 @@ export const createJournalSchema = z.object({
     prompt: z.string().min(1),
     entry: z.string().min(1),
     createdAt: z.string().optional(),
+    eventTime: z.string().optional(),
   }),
 });

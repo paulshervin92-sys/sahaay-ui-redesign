@@ -1,10 +1,18 @@
 import React, { useState } from "react";
-import { createEvent, updateEvent, deleteEvent } from "@/lib/diaryApi";
+import { createEvent, updateEvent, deleteEvent, CalendarEvent } from "@/lib/diaryApi";
 
-const emptyEvent = { title: "", description: "", time: "" };
 
-const EventModal = ({ date, event, onClose }) => {
-  const [form, setForm] = useState(event ? { ...event } : { ...emptyEvent });
+const emptyEvent: CalendarEvent = { title: "", description: "", time: "", date: "" };
+
+interface EventModalProps {
+  date: Date;
+  event: CalendarEvent | null;
+  onClose: () => void;
+}
+
+const EventModal = ({ date, event, onClose }: EventModalProps) => {
+  const [form, setForm] = useState<CalendarEvent>(event ? { ...event } : { ...emptyEvent });
+
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 

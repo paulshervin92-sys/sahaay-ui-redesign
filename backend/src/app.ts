@@ -15,7 +15,9 @@ import { copingRoutes } from "./routes/copingRoutes.js";
 import { notificationRoutes } from "./routes/notificationRoutes.js";
 import { communityRoutes } from "./routes/communityRoutes.js";
 import { journalRoutes } from "./routes/journalRoutes.js";
+import { eventRoutes } from "./routes/eventRoutes.js";
 import { safetyPlanRoutes } from "./routes/safetyPlanRoutes.js";
+
 import { weeklyGoalRoutes } from "./routes/weeklyGoalRoutes.js";
 import { configRoutes } from "./routes/configRoutes.js";
 import { adminRoutes } from "./routes/adminRoutes.js";
@@ -32,7 +34,7 @@ const allowedOrigins = [
   'capacitor://localhost',      // Capacitor (if used)
 ];
 
-app.use(cors({ 
+app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or Postman)
     if (!origin || allowedOrigins.includes(origin)) {
@@ -62,7 +64,9 @@ app.use("/api/coping", copingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/journals", journalRoutes);
+app.use("/api/events", eventRoutes);
 app.use("/api/safety-plan", safetyPlanRoutes);
+
 app.use("/api/weekly-goal", weeklyGoalRoutes);
 app.use("/api/config", configRoutes);
 app.use("/admin", adminRoutes);

@@ -1,6 +1,11 @@
-import React from "react";
+interface CalendarPickerProps {
+  initialDate: Date;
+  onSelect: (date: Date) => void;
+  onClose: () => void;
+}
 
-const CalendarPicker = ({ initialDate, onSelect, onClose }) => {
+const CalendarPicker = ({ initialDate, onSelect, onClose }: CalendarPickerProps) => {
+
   // Use a simple input type="date" for now (can be replaced with a custom calendar)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">

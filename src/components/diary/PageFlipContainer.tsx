@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
-import DiaryBook from "./DiaryBook.tsx";
+import DiaryBook from "./DiaryBook";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
-import CalendarPicker from "./CalendarPicker.tsx";
-import { fetchDiaryEntry, fetchEvents } from "@/lib/diaryApi";
+import CalendarPicker from "./CalendarPicker";
+import { fetchDiaryEntry, fetchEvents, DiaryEntry, CalendarEvent } from "@/lib/diaryApi";
 
 const today = new Date();
 
-function addDays(date, days) {
+function addDays(date: Date, days: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
@@ -15,13 +15,13 @@ function addDays(date, days) {
 const PageFlipContainer = () => {
   const [selectedDate, setSelectedDate] = useState(today);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [diaryEntries, setDiaryEntries] = useState({});
-  const [events, setEvents] = useState({});
+  const [diaryEntries, setDiaryEntries] = useState<Record<string, DiaryEntry | null>>({});
+  const [events, setEvents] = useState<Record<string, CalendarEvent[]>>({});
   const [isFlipping, setIsFlipping] = useState(false);
-  const [flipDirection, setFlipDirection] = useState(null);
+  const [flipDirection, setFlipDirection] = useState<"left" | "right" | null>(null);
 
   // Fetch diary entry and events for a date
-  const loadData = useCallback(async (date) => {
+  const loadData = useCallback(async (date: Date) => {
     const dateStr = date.toISOString().slice(0, 10);
     const entry = await fetchDiaryEntry(dateStr);
     const evts = await fetchEvents(dateStr);
@@ -31,9 +31,12 @@ const PageFlipContainer = () => {
 
   useEffect(() => {
     loadData(selectedDate);
+    // Also load the previous day since the book shows two pages
+    loadData(addDays(selectedDate, -1));
   }, [selectedDate, loadData]);
 
-  const handleFlip = (direction) => {
+  const handleFlip = (direction: "left" | "right") => {
+
     setFlipDirection(direction);
     setIsFlipping(true);
     setTimeout(() => {

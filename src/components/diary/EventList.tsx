@@ -1,13 +1,20 @@
 import React, { useState } from "react";
 import { Plus } from "lucide-react";
-import EventModal from "./EventModal.tsx";
+import EventModal from "./EventModal";
+import { CalendarEvent } from "@/lib/diaryApi";
 
 
-const EventList = ({ events, date }) => {
+interface EventListProps {
+  events?: CalendarEvent[];
+  date: Date;
+}
+
+const EventList = ({ events, date }: EventListProps) => {
   const [showModal, setShowModal] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   // Always treat events as an array
   const safeEvents = Array.isArray(events) ? events : [];
+
 
   return (
     <div className="event-list mt-2">

@@ -50,3 +50,18 @@ export const listJournalEntries = async (userId: string) => {
   const entries = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   return entries.sort((a: any, b: any) => (a.createdAt < b.createdAt ? 1 : -1));
 };
+
+export const getJournalEntryByDate = async (userId: string, dateStr: string) => {
+  // dateStr is expected as YYYY-MM-DD
+  // We need to match entries where createdAt starts with dateStr
+  const snapshot = await collection()
+    .where("userId", "==", userId)
+    .where("createdAt", ">=", dateStr)
+    .where("createdAt", "<=", dateStr + "\uf8ff")
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) return null;
+  return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+};
+

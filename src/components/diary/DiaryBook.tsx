@@ -1,15 +1,26 @@
 import React from "react";
 import DiaryPage from "./DiaryPage";
 import "./diaryBook.css";
+import { DiaryEntry, CalendarEvent } from "@/lib/diaryApi";
 
-const DiaryBook = ({ selectedDate, diaryEntries, events, isFlipping, flipDirection }) => {
+
+interface DiaryBookProps {
+  selectedDate: Date;
+  diaryEntries: Record<string, DiaryEntry | null>;
+  events: Record<string, CalendarEvent[]>;
+  isFlipping: boolean;
+  flipDirection: "left" | "right" | null;
+}
+
+const DiaryBook = ({ selectedDate, diaryEntries, events, isFlipping, flipDirection }: DiaryBookProps) => {
   // Calculate left (previous) and right (current) dates
   const rightDate = selectedDate;
   const leftDate = new Date(selectedDate);
   leftDate.setDate(rightDate.getDate() - 1);
 
   // Format date string for keys
-  const format = (date) => date.toISOString().slice(0, 10);
+  const format = (date: Date) => date.toISOString().slice(0, 10);
+
 
   // Animation classes
   let flipClass = "";

@@ -1,21 +1,32 @@
 import React, { useState, useEffect } from "react";
-import { saveDiaryEntry } from "@/lib/diaryApi";
+import { saveDiaryEntry, DiaryEntry } from "@/lib/diaryApi";
 
-const DiaryEditor = ({ entry, date }) => {
-  const [content, setContent] = useState(entry?.content || "");
+interface DiaryEditorProps {
+  entry?: DiaryEntry | null;
+  date: Date;
+}
+
+const DiaryEditor = ({ entry, date }: DiaryEditorProps) => {
+  const [content, setContent] = useState(entry?.entry || "");
   const [saving, setSaving] = useState(false);
-  useEffect(() => { setContent(entry?.content || ""); }, [entry]);
+  useEffect(() => { setContent(entry?.entry || ""); }, [entry]);
 
   // Auto-save after user stops typing
   useEffect(() => {
-    if (content === (entry?.content || "")) return;
+    if (content === (entry?.entry || "")) return;
     const timeout = setTimeout(async () => {
       setSaving(true);
-      await saveDiaryEntry({ date: date.toISOString().slice(0, 10), content });
+      await saveDiaryEntry({
+        createdAt: date.toISOString().slice(0, 10),
+        entry: content,
+        prompt: "Journal Entry"
+      });
       setSaving(false);
     }, 1000);
     return () => clearTimeout(timeout);
   }, [content, entry, date]);
+
+
 
   return (
     <div className="relative flex-1">

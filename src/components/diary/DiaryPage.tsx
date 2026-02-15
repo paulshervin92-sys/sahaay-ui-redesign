@@ -1,10 +1,20 @@
-import React, { useState, useEffect, useRef } from "react";
+import React from "react";
 import DiaryEditor from "./DiaryEditor";
 import EventList from "./EventList";
+import { DiaryEntry, CalendarEvent } from "@/lib/diaryApi";
+
 
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-const DiaryPage = ({ date, entry, events, side }) => {
+interface DiaryPageProps {
+  date: Date;
+  entry?: DiaryEntry | null;
+  events?: CalendarEvent[];
+  side: "left" | "right";
+}
+
+const DiaryPage = ({ date, entry, events, side }: DiaryPageProps) => {
+
   const dayName = days[date.getDay()];
   const dayNum = date.getDate();
   const month = date.toLocaleString("default", { month: "long" });

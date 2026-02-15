@@ -1,44 +1,86 @@
-// Diary API helpers for frontend
-import axios from "axios";
+// Diary API helpers for frontend using the standard apiFetch
+import { apiFetch } from "./api";
 
-export async function fetchDiaryEntry(date) {
+export interface DiaryEntry {
+  id?: string;
+  prompt: string;
+  entry: string;
+  createdAt: string;
+  eventTime?: string;
+}
+
+export interface CalendarEvent {
+  id?: string;
+  title: string;
+  description?: string;
+  date: string;
+  time?: string;
+  startTime?: string;
+  endTime?: string;
+}
+
+
+export async function fetchDiaryEntry(date: string): Promise<DiaryEntry | null> {
   try {
-    const res = await axios.get(`/diary/${date}`);
-    return res.data;
-  } catch {
+    const res = await apiFetch<{ entry: DiaryEntry | null }>(`/api/journals/by-date/${date}`);
+    return res.entry;
+  } catch (error) {
+    console.error("Error fetching diary entry:", error);
     return null;
   }
 }
 
-export async function saveDiaryEntry({ date, content }) {
+export async function saveDiaryEntry(entry: Partial<DiaryEntry>): Promise<DiaryEntry | null> {
   try {
-    await axios.post(`/diary`, { date, content });
-  } catch {}
+    return await apiFetch<DiaryEntry>(`/api/journals`, {
+      method: "POST",
+      body: JSON.stringify(entry),
+    });
+  } catch (error) {
+    console.error("Error saving diary entry:", error);
+    return null;
+  }
 }
 
-export async function fetchEvents(date) {
+export async function fetchEvents(date: string): Promise<CalendarEvent[]> {
   try {
-    const res = await axios.get(`/events/${date}`);
-    return res.data;
-  } catch {
+    return await apiFetch<CalendarEvent[]>(`/api/events/${date}`);
+  } catch (error) {
+    console.error("Error fetching events:", error);
     return [];
   }
 }
 
-export async function createEvent(event) {
+export async function createEvent(event: CalendarEvent): Promise<CalendarEvent | null> {
   try {
-    await axios.post(`/events`, event);
-  } catch {}
+    return await apiFetch<CalendarEvent>(`/api/events`, {
+      method: "POST",
+      body: JSON.stringify(event),
+    });
+  } catch (error) {
+    console.error("Error creating event:", error);
+    return null;
+  }
 }
 
-export async function updateEvent(event) {
+export async function updateEvent(event: CalendarEvent): Promise<CalendarEvent | null> {
   try {
-    await axios.post(`/events`, event);
-  } catch {}
+    return await apiFetch<CalendarEvent>(`/api/events/${event.id}`, {
+      method: "PUT",
+      body: JSON.stringify(event),
+    });
+  } catch (error) {
+    console.error("Error updating event:", error);
+    return null;
+  }
 }
 
-export async function deleteEvent(id) {
+export async function deleteEvent(id: string): Promise<void> {
   try {
-    await axios.delete(`/events/${id}`);
-  } catch {}
+    await apiFetch(`/api/events/${id}`, {
+      method: "DELETE",
+    });
+  } catch (error) {
+    console.error("Error deleting event:", error);
+  }
 }
