@@ -1,7 +1,15 @@
 import { getFirestore } from "../config/firebase.js";
 const userStreaksCollection = () => getFirestore().collection("userStreaks");
 const userRewardsCollection = () => getFirestore().collection("userRewards");
-export const getStreak = async (req: Request, res: Response) => {
+import type { Request, Response } from "express";
+import { updateUserStreak } from "../services/streakService.js";
+
+// Extend Request type to include userId
+interface AuthenticatedRequest extends Request {
+  userId?: string;
+}
+
+export const getStreak = async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.userId;
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   const streakDoc = await userStreaksCollection().doc(userId).get();
@@ -12,14 +20,12 @@ export const getStreak = async (req: Request, res: Response) => {
   });
 };
 
-export const getRewards = async (req: Request, res: Response) => {
+export const getRewards = async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.userId;
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   const rewardDoc = await userRewardsCollection().doc(userId).get();
   return res.json(rewardDoc.exists ? rewardDoc.data() : { unlockedRewards: [], activePremiumUntil: null });
 };
-import type { Request, Response } from "express";
-import { updateUserStreak } from "../services/streakService.js";
 
 export const updateStreak = async (req: Request, res: Response) => {
   const { userId, activityType } = req.body;
@@ -30,6 +36,10 @@ export const updateStreak = async (req: Request, res: Response) => {
     const result = await updateUserStreak(userId, activityType);
     return res.json(result);
   } catch (err) {
-    return res.status(500).json({ error: err.message || "Failed to update streak" });
+    if (err instanceof Error) {
+      return res.status(500).json({ error: err.message });
+    } else {
+      return res.status(500).json({ error: "Failed to update streak" });
+    }
   }
 };
