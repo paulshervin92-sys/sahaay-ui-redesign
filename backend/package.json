@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json && npm run postbuild",
-    "postbuild": "copy src\\utils\\email.js dist\\utils\\email.js && copy src\\utils\\scheduler.js dist\\utils\\scheduler.js",
+    "postbuild": "cp src/utils/email.js dist/utils/email.js && cp src/utils/scheduler.js dist/utils/scheduler.js",
     "start": "node dist/index.js",
     "seed": "tsx src/scripts/seed.ts"
   },
