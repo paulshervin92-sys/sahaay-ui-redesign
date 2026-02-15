@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Flame, TrendingUp, Sparkles, Bell, NotebookPen } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { apiFetch } from "@/lib/api";
+import CalmAudioPlayer from "@/components/audio/CalmAudioPlayer";
 import type { CheckIn, Mood, WeeklyGoal } from "@/types";
 
 const moods: { emoji: string; label: string; value: Mood }[] = [
@@ -168,6 +169,11 @@ const Dashboard = () => {
 
   return (
     <div className="mx-auto max-w-5xl space-y-10 animate-fade-in">
+      {/* Calm Audio Player - Fixed Position */}
+      <div className="fixed top-4 right-4 z-50">
+        <CalmAudioPlayer />
+      </div>
+
       {/* Primary action */}
       <Card className="overflow-hidden rounded-3xl border border-border/50 bg-gradient-to-br from-lavender via-secondary to-mint shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
         <CardContent className="p-6 md:p-10">

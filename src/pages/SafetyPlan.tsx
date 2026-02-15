@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Phone, Plus, Trash2 } from "lucide-react";
+import { Phone, Plus, Trash2, Download, MessageSquare, GripVertical, CheckCircle2, AlertCircle } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import type { SafetyContact, SafetyPlan, SafetyResource } from "@/types";
 import { apiFetch } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface Helpline {
   name: string;
@@ -50,6 +51,7 @@ const createResource = (): SafetyResource => ({
 
 const SafetyPlanPage = () => {
   const { safetyPlan, updateSafetyPlan } = useUser();
+  const { toast } = useToast();
   const [reasonsText, setReasonsText] = useState("");
   const [warningText, setWarningText] = useState("");
   const [triggerText, setTriggerText] = useState("");
@@ -60,6 +62,8 @@ const SafetyPlanPage = () => {
   const [resources, setResources] = useState<SafetyResource[]>([]);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [helplines, setHelplines] = useState<Helpline[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
     const plan = safetyPlan ?? emptyPlan;
@@ -72,7 +76,15 @@ const SafetyPlanPage = () => {
     setContacts(plan.contacts.length ? plan.contacts : []);
     setResources(plan.resources.length ? plan.resources : []);
     setSavedAt(plan.updatedAt ? new Date(plan.updatedAt).toLocaleString() : null);
+    setHasUnsavedChanges(false);
   }, [safetyPlan]);
+
+  // Mark as having unsaved changes
+  useEffect(() => {
+    if (savedAt) {
+      setHasUnsavedChanges(true);
+    }
+  }, [reasonsText, warningText, triggerText, copingText, placesText, groundingNotes, contacts, resources]);
 
   useEffect(() => {
     apiFetch<{ helplines: Helpline[] }>("/api/config/helplines")
@@ -91,20 +103,114 @@ const SafetyPlanPage = () => {
   }, [safetyPlan]);
 
   const handleSave = async () => {
-    const nextPlan: SafetyPlan = {
-      updatedAt: new Date().toISOString(),
-      reasonsToLive: toLines(reasonsText),
-      warningSigns: toLines(warningText),
-      triggers: toLines(triggerText),
-      copingSteps: toLines(copingText),
-      safePlaces: toLines(placesText),
-      contacts: contacts.filter((c) => c.name.trim()),
-      resources: resources.filter((r) => r.name.trim()),
-      groundingNotes: groundingNotes.trim(),
-    };
-    await updateSafetyPlan(nextPlan);
-    setSavedAt(new Date(nextPlan.updatedAt).toLocaleString());
+    setIsSaving(true);
+    try {
+      // Validate phone numbers
+      const invalidContacts = contacts.filter(
+        (c) => c.phone && c.phone.trim() && !/^[+]?[\d\s()-]+$/.test(c.phone)
+      );
+      if (invalidContacts.length > 0) {
+        toast({
+          title: "Invalid phone number",
+          description: "Please check phone numbers contain only digits, spaces, +, -, ()",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const nextPlan: SafetyPlan = {
+        updatedAt: new Date().toISOString(),
+        reasonsToLive: toLines(reasonsText),
+        warningSigns: toLines(warningText),
+        triggers: toLines(triggerText),
+        copingSteps: toLines(copingText),
+        safePlaces: toLines(placesText),
+        contacts: contacts.filter((c) => c.name.trim()),
+        resources: resources.filter((r) => r.name.trim()),
+        groundingNotes: groundingNotes.trim(),
+      };
+      await updateSafetyPlan(nextPlan);
+      setSavedAt(new Date(nextPlan.updatedAt).toLocaleString());
+      setHasUnsavedChanges(false);
+      toast({
+        title: "Safety plan saved",
+        description: "Your safety plan is ready when you need it.",
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to save",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  const handleExport = useCallback(() => {
+    const plan = safetyPlan ?? emptyPlan;
+    let text = "🛡️ MY SAFETY PLAN\n\n";
+    
+    if (plan.reasonsToLive.length) {
+      text += "💛 REASONS TO LIVE:\n" + plan.reasonsToLive.map(r => `• ${r}`).join("\n") + "\n\n";
+    }
+    if (plan.warningSigns.length) {
+      text += "⚠️ WARNING SIGNS:\n" + plan.warningSigns.map(w => `• ${w}`).join("\n") + "\n\n";
+    }
+    if (plan.triggers.length) {
+      text += "🔔 TRIGGERS:\n" + plan.triggers.map(t => `• ${t}`).join("\n") + "\n\n";
+    }
+    if (plan.copingSteps.length) {
+      text += "🧘 COPING STEPS:\n" + plan.copingSteps.map(c => `• ${c}`).join("\n") + "\n\n";
+    }
+    if (plan.safePlaces.length) {
+      text += "🏡 SAFE PLACES:\n" + plan.safePlaces.map(p => `• ${p}`).join("\n") + "\n\n";
+    }
+    if (plan.contacts.length) {
+      text += "📞 TRUSTED CONTACTS:\n";
+      plan.contacts.forEach(c => {
+        text += `• ${c.name}${c.relation ? ` (${c.relation})` : ""}: ${c.phone || "No phone"}\n`;
+      });
+      text += "\n";
+    }
+    if (plan.resources.length) {
+      text += "🆘 RESOURCES:\n";
+      plan.resources.forEach(r => {
+        text += `• ${r.name}: ${r.phone || r.url || ""}\n`;
+      });
+      text += "\n";
+    }
+    if (plan.groundingNotes) {
+      text += "🌿 GROUNDING NOTES:\n" + plan.groundingNotes + "\n\n";
+    }
+    
+    text += "Generated from Sahaay Safety Plan\n";
+    text += new Date().toLocaleString();
+
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `sahaay-safety-plan-${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Safety plan exported",
+      description: "You can print or share this file.",
+    });
+  }, [safetyPlan, toast]);
+
+  const moveContact = useCallback((fromIndex: number, direction: 'up' | 'down') => {
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+    if (toIndex < 0 || toIndex >= contacts.length) return;
+    
+    const newContacts = [...contacts];
+    [newContacts[fromIndex], newContacts[toIndex]] = [newContacts[toIndex], newContacts[fromIndex]];
+    setContacts(newContacts);
+  }, [contacts]);
 
   const updateContact = (id: string, field: keyof SafetyContact, value: string) => {
     setContacts((prev) => prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
@@ -123,8 +229,33 @@ const SafetyPlanPage = () => {
             Build a private plan that shows up when you need extra support.
           </p>
         </div>
-        <div className="text-xs text-muted-foreground">
-          {savedAt ? `Saved ${savedAt}` : "Not saved yet"}
+        <div className="flex items-center gap-3">
+          {hasUnsavedChanges && (
+            <div className="flex items-center gap-1.5 text-xs text-amber-600">
+              <AlertCircle className="h-3.5 w-3.5" />
+              Unsaved changes
+            </div>
+          )}
+          <div className="text-xs text-muted-foreground">
+            {savedAt ? (
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                {`Saved ${savedAt}`}
+              </div>
+            ) : (
+              "Not saved yet"
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            className="rounded-xl"
+            disabled={!safetyPlan}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
         </div>
       </div>
 
@@ -136,40 +267,44 @@ const SafetyPlanPage = () => {
             <label className="text-xs font-semibold text-muted-foreground">Reasons to live</label>
             <Textarea
               value={reasonsText}
-              onChange={(event) => setReasonsText(event.target.value)}
-              placeholder="One per line"
+              onChange={(event) => setReasonsText(event.target.value.slice(0, 500))}
+              placeholder="One per line (e.g., My family, My dog, Future dreams)"
               className="min-h-[90px] rounded-2xl bg-card"
             />
+            <p className="text-xs text-muted-foreground text-right">{reasonsText.length}/500</p>
           </div>
 
           <div className="space-y-2">
             <label className="text-xs font-semibold text-muted-foreground">Warning signs</label>
             <Textarea
               value={warningText}
-              onChange={(event) => setWarningText(event.target.value)}
-              placeholder="One per line"
+              onChange={(event) => setWarningText(event.target.value.slice(0, 500))}
+              placeholder="One per line (e.g., Isolating myself, Skipping meals, Can't sleep)"
               className="min-h-[90px] rounded-2xl bg-card"
             />
+            <p className="text-xs text-muted-foreground text-right">{warningText.length}/500</p>
           </div>
 
           <div className="space-y-2">
             <label className="text-xs font-semibold text-muted-foreground">Triggers</label>
             <Textarea
               value={triggerText}
-              onChange={(event) => setTriggerText(event.target.value)}
-              placeholder="One per line"
+              onChange={(event) => setTriggerText(event.target.value.slice(0, 500))}
+              placeholder="One per line (e.g., Loud arguments, Deadlines, Crowded places)"
               className="min-h-[90px] rounded-2xl bg-card"
             />
+            <p className="text-xs text-muted-foreground text-right">{triggerText.length}/500</p>
           </div>
 
           <div className="space-y-2">
             <label className="text-xs font-semibold text-muted-foreground">Coping steps that help</label>
             <Textarea
               value={copingText}
-              onChange={(event) => setCopingText(event.target.value)}
-              placeholder="One per line"
+              onChange={(event) => setCopingText(event.target.value.slice(0, 500))}
+              placeholder="One per line (e.g., Deep breathing, Walk outside, Call a friend)"
               className="min-h-[90px] rounded-2xl bg-card"
             />
+            <p className="text-xs text-muted-foreground text-right">{copingText.length}/500</p>
           </div>
 
           <div className="space-y-2">
@@ -206,35 +341,81 @@ const SafetyPlanPage = () => {
           {contacts.length === 0 && (
             <p className="text-xs text-muted-foreground">Add someone you trust so you can reach out quickly.</p>
           )}
-          {contacts.map((contact) => (
-            <div key={contact.id} className="grid gap-3 rounded-2xl border border-border bg-surface p-4 md:grid-cols-3">
-              <Input
-                value={contact.name}
-                onChange={(event) => updateContact(contact.id, "name", event.target.value)}
-                placeholder="Name"
-                className="rounded-xl"
-              />
-              <Input
-                value={contact.relation ?? ""}
-                onChange={(event) => updateContact(contact.id, "relation", event.target.value)}
-                placeholder="Relation"
-                className="rounded-xl"
-              />
-              <div className="flex gap-2">
-                <Input
-                  value={contact.phone ?? ""}
-                  onChange={(event) => updateContact(contact.id, "phone", event.target.value)}
-                  placeholder="Phone"
-                  className="rounded-xl"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setContacts((prev) => prev.filter((item) => item.id !== contact.id))}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+          {contacts.map((contact, index) => (
+            <div key={contact.id} className="rounded-2xl border border-border bg-surface p-4">
+              <div className="flex items-start gap-2">
+                <div className="flex flex-col gap-1 mt-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => moveContact(index, 'up')}
+                    disabled={index === 0}
+                  >
+                    <GripVertical className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex-1 grid gap-3 md:grid-cols-3">
+                  <Input
+                    value={contact.name}
+                    onChange={(event) => updateContact(contact.id, "name", event.target.value.slice(0, 50))}
+                    placeholder="Name"
+                    className="rounded-xl"
+                  />
+                  <Input
+                    value={contact.relation ?? ""}
+                    onChange={(event) => updateContact(contact.id, "relation", event.target.value.slice(0, 30))}
+                    placeholder="Relation (e.g., Friend)"
+                    className="rounded-xl"
+                  />
+                  <div className="flex gap-2">
+                    <Input
+                      value={contact.phone ?? ""}
+                      onChange={(event) => {
+                        const phone = event.target.value.slice(0, 20);
+                        updateContact(contact.id, "phone", phone);
+                      }}
+                      placeholder="Phone"
+                      className="rounded-xl"
+                      type="tel"
+                    />
+                    {contact.phone && contact.phone.trim() && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          asChild
+                          className="rounded-xl"
+                        >
+                          <a href={`tel:${contact.phone}`}>
+                            <Phone className="h-4 w-4" />
+                          </a>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          asChild
+                          className="rounded-xl"
+                        >
+                          <a href={`sms:${contact.phone}`}>
+                            <MessageSquare className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setContacts((prev) => prev.filter((item) => item.id !== contact.id))}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           ))}
@@ -323,8 +504,8 @@ const SafetyPlanPage = () => {
               We will show quick actions when mood trends downward or crisis keywords appear.
             </p>
           </div>
-          <Button onClick={handleSave} className="rounded-xl">
-            Save safety plan
+          <Button onClick={handleSave} className="rounded-xl" disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save safety plan"}
           </Button>
         </CardContent>
       </Card>

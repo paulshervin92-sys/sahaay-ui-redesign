@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import { DashboardSkeleton } from "@/components/LoadingSkeletons";
 import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
@@ -33,17 +35,22 @@ const App = () => {
   }, [user, profile]);
 
   if (authLoading || userLoading) {
-    return <div className="min-h-screen" />;
+    return (
+      <div className="min-h-screen bg-background p-8">
+        <DashboardSkeleton />
+      </div>
+    );
   }
 
   const postAuthPath = onboardingCompleted ? "/dashboard" : "/onboarding";
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
           <Routes>
             <Route
               path="/"
@@ -81,6 +88,7 @@ const App = () => {
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 

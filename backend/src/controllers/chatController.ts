@@ -30,37 +30,106 @@ const extractTags = (text: string) => {
 };
 
 export const sendMessage = async (req: AuthRequest, res: Response) => {
-  const { text } = req.body as { text: string };
+  const { text, getResponse = false } = req.body as { text: string; getResponse?: boolean };
   const userId = req.userId as string;
-  const emotion = await classifyEmotion(text, { userId, purpose: "chat_emotion" });
-  const crisis = await detectCrisis(text, { userId: req.userId as string, purpose: "chat_crisis" });
-  const tags = extractTags(text);
-  const timezone = await getUserTimezone(userId);
-  const moodLabel = buildMoodLabel(emotion);
-  const dayKey = getDayKey(new Date(), timezone);
+  
+  try {
+    // Parallelize emotion and crisis detection for speed
+    const [emotion, crisis, timezone] = await Promise.all([
+      classifyEmotion(text, { userId, purpose: "chat_emotion" }),
+      detectCrisis(text, { userId, purpose: "chat_crisis" }),
+      getUserTimezone(userId),
+    ]);
+    
+    const tags = extractTags(text);
+    const moodLabel = buildMoodLabel(emotion);
+    const dayKey = getDayKey(new Date(), timezone);
 
-  const doc = await messagesCollection().add({
-    userId: req.userId,
-    sender: "user",
-    text,
-    tags,
-    emotion,
-    crisis,
-    dayKey,
-    timezone,
-    createdAt: new Date().toISOString(),
-  });
+    // Save user message
+    const doc = await messagesCollection().add({
+      userId: req.userId,
+      sender: "user",
+      text,
+      tags,
+      emotion,
+      crisis,
+      dayKey,
+      timezone,
+      createdAt: new Date().toISOString(),
+    });
 
-  await upsertDailyCheckIn(userId, timezone, {
-    mood: emotion.primary,
-    moodLabel,
-    note: text,
-    sentimentScore: emotion.sentimentScore,
-  });
+    // Run these in background without blocking response
+    Promise.all([
+      upsertDailyCheckIn(userId, timezone, {
+        mood: emotion.primary,
+        moodLabel,
+        note: text,
+        sentimentScore: emotion.sentimentScore,
+      }),
+      generateDailySummary(userId, timezone, emotion),
+    ]).catch(err => console.error("Background task error:", err));
 
-  await generateDailySummary(userId, timezone, emotion);
+    // If frontend wants response in same call, generate it
+    if (getResponse) {
+      const recent = await messagesCollection()
+        .where("userId", "==", userId)
+        .where("dayKey", "==", dayKey)
+        .limit(10)
+        .get();
+      
+      let recentMessages = recent.docs.map((doc) => doc.data());
+      
+      // Filter out the current message to prevent repetition
+      recentMessages = recentMessages.filter((msg: any) => 
+        msg.text !== text && msg.sender !== "ai"
+      );
+      
+      // Sort by recency (most recent first)
+      recentMessages.sort((a: any, b: any) => {
+        const aTime = new Date(a.createdAt).getTime();
+        const bTime = new Date(b.createdAt).getTime();
+        return bTime - aTime;
+      });
+      
+      // Take last 3 messages for context
+      const contextMessages = recentMessages.slice(0, 3);
+      const context = contextMessages
+        .map((msg: any) => `User: ${msg.text}`)
+        .reverse()
+        .join("\n");
+      
+      const response = await generateSupportResponse(text, context, { userId, purpose: "chat_response" });
+      
+      // Save AI response
+      const aiDoc = await messagesCollection().add({
+        userId: req.userId,
+        sender: "ai",
+        text: response.text,
+        dayKey,
+        timezone,
+        createdAt: new Date().toISOString(),
+      });
+      
+      return res.json({ 
+        messageId: doc.id, 
+        emotion, 
+        crisis, 
+        tags,
+        response: {
+          id: aiDoc.id,
+          text: response.text,
+        }
+      });
+    }
 
-  return res.json({ messageId: doc.id, emotion, crisis, tags });
+    return res.json({ messageId: doc.id, emotion, crisis, tags });
+  } catch (error) {
+    console.error("Send message error:", error);
+    return res.status(500).json({ 
+      error: "Failed to send message",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
 };
 
 export const listMessages = async (req: AuthRequest, res: Response) => {
@@ -104,22 +173,57 @@ export const listHistory = async (req: AuthRequest, res: Response) => {
 export const generateResponse = async (req: AuthRequest, res: Response) => {
   const { text } = req.body as { text: string };
   const userId = req.userId as string;
-  const recent = await messagesCollection().where("userId", "==", userId).limit(5).get();
-  const recentMessages = recent.docs.map((doc) => doc.data());
-  recentMessages.sort((a: any, b: any) => (a.createdAt < b.createdAt ? 1 : -1));
-  const context = recentMessages.map((doc: any) => doc.text).join(" ");
-  const response = await generateSupportResponse(text, context, { userId, purpose: "chat_response" });
-  const timezone = await getUserTimezone(userId);
-  const dayKey = getDayKey(new Date(), timezone);
-  await messagesCollection().add({
-    userId: req.userId,
-    sender: "ai",
-    text: response.text,
-    dayKey,
-    timezone,
-    createdAt: new Date().toISOString(),
-  });
-  return res.json({ response });
+  
+  try {
+    const timezone = await getUserTimezone(userId);
+    const dayKey = getDayKey(new Date(), timezone);
+    
+    const recent = await messagesCollection()
+      .where("userId", "==", userId)
+      .where("dayKey", "==", dayKey)
+      .limit(10)
+      .get();
+    
+    let recentMessages = recent.docs.map((doc) => doc.data());
+    
+    // Filter out current message and AI messages
+    recentMessages = recentMessages.filter((msg: any) => 
+      msg.text !== text && msg.sender !== "ai"
+    );
+    
+    // Sort by recency (most recent first)
+    recentMessages.sort((a: any, b: any) => {
+      const aTime = new Date(a.createdAt).getTime();
+      const bTime = new Date(b.createdAt).getTime();
+      return bTime - aTime;
+    });
+    
+    // Take last 3 messages for context
+    const contextMessages = recentMessages.slice(0, 3);
+    const context = contextMessages
+      .map((msg: any) => `User: ${msg.text}`)
+      .reverse()
+      .join("\n");
+    
+    const response = await generateSupportResponse(text, context, { userId, purpose: "chat_response" });
+    
+    await messagesCollection().add({
+      userId: req.userId,
+      sender: "ai",
+      text: response.text,
+      dayKey,
+      timezone,
+      createdAt: new Date().toISOString(),
+    });
+    
+    return res.json({ response });
+  } catch (error) {
+    console.error("Generate response error:", error);
+    return res.status(500).json({ 
+      error: "Failed to generate response",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
 };
 
 export const getTodaySummary = async (req: AuthRequest, res: Response) => {

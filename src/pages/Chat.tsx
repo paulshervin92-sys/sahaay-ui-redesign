@@ -7,6 +7,7 @@ import { useUser } from "@/contexts/UserContext";
 import { Link, useSearchParams } from "react-router-dom";
 import { apiFetch } from "@/lib/api";
 import { format, isToday } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 interface Helpline {
   name: string;
@@ -46,6 +47,7 @@ const Chat = () => {
   const [searchParams] = useSearchParams();
   const dayKey = searchParams.get("day");
   const isHistorical = dayKey && !isToday(new Date(dayKey));
+  const { toast } = useToast();
 
   const initialMessage: Message = {
     id: 0,
@@ -126,50 +128,68 @@ const Chat = () => {
   const handleSend = () => {
     if (!input.trim() || isHistorical) return;
     const userMsg: Message = { id: Date.now(), text: input.trim(), sender: "user" };
+    
+    // Optimistic UI - show user message immediately
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
     setIsSending(true);
 
-    apiFetch<{ tags: string[]; crisis: { severity: string } }>("/api/chat", {
+    // Use combined endpoint for speed (1 API call instead of 2)
+    apiFetch<{ 
+      tags: string[]; 
+      crisis: { severity: string }; 
+      response: { id: string; text: string } 
+    }>("/api/chat", {
       method: "POST",
-      body: JSON.stringify({ text: userMsg.text }),
+      body: JSON.stringify({ text: userMsg.text, getResponse: true }),
     })
       .then((result) => {
         const isCrisis = result.crisis?.severity === "high";
+        
+        // Update user message with tags
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === userMsg.id ? { ...msg, tags: result.tags, isCrisis } : msg,
           ),
         );
 
-        return apiFetch<{ response: { text: string } }>("/api/chat/respond", {
-          method: "POST",
-          body: JSON.stringify({ text: userMsg.text }),
-        }).then((response) => ({ response, isCrisis }));
-      })
-      .then(({ response, isCrisis }) => {
+        // Add AI response
         const aiMsg: Message = {
           id: Date.now() + 1,
-          text: response.response.text,
+          text: result.response.text,
           sender: "ai",
           isCrisis,
         };
         setMessages((prev) => [...prev, aiMsg]);
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error("Chat error:", error);
+        
+        // Show error message to user
+        const errorMsg = error.status === 500 
+          ? "I'm having trouble right now. Please try again."
+          : error.status === 429
+          ? "Too many requests. Please wait a moment."
+          : "I am here for you. Tell me more.";
+        
         const aiMsg: Message = {
           id: Date.now() + 1,
-          text: "I am here for you. Tell me more.",
+          text: errorMsg,
           sender: "ai",
         };
         setMessages((prev) => [...prev, aiMsg]);
+        
+        toast({
+          title: "Connection issue",
+          description: "Your message was saved but response failed. Try again?",
+          variant: "destructive",
+        });
       })
       .finally(() => {
         setIsTyping(false);
         setIsSending(false);
-      });
-  };
+      });  };
 
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col animate-fade-in">

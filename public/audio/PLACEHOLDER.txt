@@ -1,0 +1,12 @@
+PLACEHOLDER FOR CALM AMBIENT AUDIO
+
+This file should be replaced with an actual MP3 file.
+
+For testing, you can download free ambient audio from:
+- https://freepd.com
+- https://freemusicarchive.org
+- https://incompetech.com
+
+Recommended: Search for "ambient calm meditation rain ocean" tracks.
+
+File should be named: calm-ambient.mp3
