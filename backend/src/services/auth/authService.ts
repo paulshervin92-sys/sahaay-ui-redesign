@@ -1,3 +1,10 @@
+// Fetch user email by userId
+export const getUserEmailById = async (userId: string): Promise<string | null> => {
+  const doc = await usersCollection().doc(userId).get();
+  if (!doc.exists) return null;
+  const data = doc.data();
+  return data?.email || null;
+};
 import bcrypt from "bcryptjs";
 import { getFirestore } from "../../config/firebase.js";
 import { AppError } from "../../utils/appError.js";

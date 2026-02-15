@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { Volume2, VolumeX } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 
@@ -16,6 +15,7 @@ const CalmAudioPlayer = () => {
   const [isEnabled, setIsEnabled] = useState(false);
   const [volume, setVolume] = useState(DEFAULT_VOLUME);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Initialize audio element and load saved state
   useEffect(() => {
@@ -122,77 +122,90 @@ const CalmAudioPlayer = () => {
   };
 
   return (
-    <Card className="rounded-xl bg-slate-900/60 backdrop-blur border border-slate-700 shadow-lg">
-      <CardContent className="p-4 space-y-3">
-        {/* Toggle Control */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            {volume === 0 ? (
-              <VolumeX className="h-5 w-5 text-slate-400" />
-            ) : (
-              <Volume2 className="h-5 w-5 text-slate-400" />
-            )}
-            <span className="text-sm font-medium text-slate-200">
+    <div className="relative">
+      {/* Main Toggle Button */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border shadow-sm transition-all hover:shadow-md ${
+          isEnabled
+            ? "bg-primary text-primary-foreground"
+            : "bg-surface text-foreground"
+        }`}
+        aria-label="Calm mode settings"
+      >
+        {volume === 0 || !isEnabled ? (
+          <VolumeX className="h-4 w-4" />
+        ) : (
+          <Volume2 className="h-4 w-4" />
+        )}
+      </button>
+
+      {/* Dropdown Panel */}
+      {isExpanded && (
+        <div className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-border bg-surface/95 backdrop-blur-sm p-4 shadow-lg space-y-3">
+          {/* Toggle Control */}
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-foreground">
               Calm Mode
             </span>
+
+            <Button
+              onClick={handleToggle}
+              disabled={isLoading}
+              variant={isEnabled ? "default" : "outline"}
+              size="sm"
+              className="rounded-lg transition-all"
+              aria-label={isEnabled ? "Disable calm mode" : "Enable calm mode"}
+            >
+              {isLoading ? (
+                <span className="text-xs">Loading...</span>
+              ) : isEnabled ? (
+                <span className="text-xs">ON</span>
+              ) : (
+                <span className="text-xs">OFF</span>
+              )}
+            </Button>
           </div>
 
-          <Button
-            onClick={handleToggle}
-            disabled={isLoading}
-            variant={isEnabled ? "default" : "outline"}
-            size="sm"
-            className={`rounded-lg transition-all ${
-              isEnabled
-                ? "bg-primary text-primary-foreground"
-                : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-            }`}
-            aria-label={isEnabled ? "Disable calm mode" : "Enable calm mode"}
-          >
-            {isLoading ? (
-              <span className="text-xs">Loading...</span>
-            ) : isEnabled ? (
-              <span className="text-xs">ON</span>
-            ) : (
-              <span className="text-xs">OFF</span>
-            )}
-          </Button>
+          {/* Volume Control */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground">
+                Volume
+              </label>
+              <span className="text-xs font-medium text-foreground">
+                {Math.round(volume * 100)}%
+              </span>
+            </div>
+
+            <Slider
+              value={[volume]}
+              onValueChange={handleVolumeChange}
+              max={1}
+              step={0.01}
+              className="w-full"
+              disabled={!isEnabled}
+              aria-label="Adjust volume"
+            />
+          </div>
+
+          {/* Info Text */}
+          <p className="text-xs text-muted-foreground">
+            Ambient sounds to help you relax and focus.
+          </p>
         </div>
+      )}
 
-        {/* Volume Control */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-slate-400">
-              Volume
-            </label>
-            <span className="text-xs text-slate-500">
-              {Math.round(volume * 100)}%
-            </span>
-          </div>
-          
-          <Slider
-            value={[volume]}
-            onValueChange={handleVolumeChange}
-            min={0}
-            max={1}
-            step={0.01}
-            className="w-full"
-            aria-label="Adjust calm mode volume"
-          />
-        </div>
-
-        {/* Status Indicator */}
-        {isEnabled && (
-          <div className="flex items-center gap-2 pt-1">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-            </span>
-            <span className="text-xs text-green-400">Playing ambient sounds</span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {/* Click outside to close */}
+      {isExpanded && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setIsExpanded(false)}
+          aria-hidden="true"
+        />
+      )}
+    </div>
   );
 };
 

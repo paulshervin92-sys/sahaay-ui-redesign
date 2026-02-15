@@ -1,9 +1,13 @@
 import { getFirestore } from "../../config/firebase.js";
+import { getUserEmailById } from "../auth/authService.js";
+import { sendEventReminder } from "../../utils/email.js";
+import { scheduleEmail } from "../../utils/scheduler.js";
 
 export interface JournalEntryInput {
   prompt: string;
   entry: string;
   createdAt?: string;
+  eventTime?: string; // ISO string for event reminder (optional)
 }
 
 const collection = () => getFirestore().collection("journals");
@@ -15,8 +19,30 @@ export const createJournalEntry = async (userId: string, input: JournalEntryInpu
     prompt: input.prompt,
     entry: input.entry,
     createdAt,
+    eventTime: input.eventTime || null,
   });
-  return { id: doc.id, prompt: input.prompt, entry: input.entry, createdAt };
+
+  // Schedule email reminder if eventTime is provided and in the future
+  if (input.eventTime) {
+    const eventDate = new Date(input.eventTime);
+    if (!isNaN(eventDate.getTime()) && eventDate > new Date()) {
+      const email = await getUserEmailById(userId);
+      if (email) {
+        scheduleEmail({
+          id: `journal_event_${doc.id}`,
+          date: eventDate,
+          callback: async () => {
+            await sendEventReminder({
+              to: email,
+              subject: "Sahaay Event Reminder",
+              text: `You have an event: ${input.prompt}\n\n${input.entry}`,
+            });
+          },
+        });
+      }
+    }
+  }
+  return { id: doc.id, prompt: input.prompt, entry: input.entry, createdAt, eventTime: input.eventTime };
 };
 
 export const listJournalEntries = async (userId: string) => {

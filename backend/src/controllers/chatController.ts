@@ -74,28 +74,26 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       const recent = await messagesCollection()
         .where("userId", "==", userId)
         .where("dayKey", "==", dayKey)
-        .limit(10)
+        .orderBy("createdAt", "desc")
+        .limit(6)
         .get();
       
       let recentMessages = recent.docs.map((doc) => doc.data());
       
-      // Filter out the current message to prevent repetition
-      recentMessages = recentMessages.filter((msg: any) => 
-        msg.text !== text && msg.sender !== "ai"
-      );
-      
-      // Sort by recency (most recent first)
+      // Sort chronologically (oldest first)
       recentMessages.sort((a: any, b: any) => {
         const aTime = new Date(a.createdAt).getTime();
         const bTime = new Date(b.createdAt).getTime();
-        return bTime - aTime;
+        return aTime - bTime;
       });
       
-      // Take last 3 messages for context
-      const contextMessages = recentMessages.slice(0, 3);
+      // Build context with both user and AI messages, but exclude the JUST-SENT message
+      const contextMessages = recentMessages
+        .filter((msg: any) => msg.text !== text)
+        .slice(-4); // Last 4 messages (2 exchanges)
+      
       const context = contextMessages
-        .map((msg: any) => `User: ${msg.text}`)
-        .reverse()
+        .map((msg: any) => `${msg.sender === "user" ? "User" : "Sahaay"}: ${msg.text}`)
         .join("\n");
       
       const response = await generateSupportResponse(text, context, { userId, purpose: "chat_response" });

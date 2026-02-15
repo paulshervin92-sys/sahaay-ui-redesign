@@ -22,6 +22,7 @@ import ChatHistory from "./pages/ChatHistory";
 import { useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUser } from "@/contexts/UserContext";
+import RewardsDashboard from "./pages/RewardsDashboard";
 
 const queryClient = new QueryClient();
 
@@ -80,6 +81,7 @@ const App = () => {
               <Route path="/coping" element={<CopingTools />} />
               <Route path="/community" element={<Community />} />
               <Route path="/journal" element={<Journal />} />
+              <Route path="/rewards" element={<RewardsDashboard />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/safety" element={<SafetyPlan />} />
             </Route>

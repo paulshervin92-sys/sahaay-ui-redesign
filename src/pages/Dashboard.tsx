@@ -4,10 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Flame, TrendingUp, Sparkles, Bell, NotebookPen } from "lucide-react";
+import { Flame, TrendingUp, Sparkles, Bell, NotebookPen, Trophy, Shield } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { apiFetch } from "@/lib/api";
-import CalmAudioPlayer from "@/components/audio/CalmAudioPlayer";
+import { useStreak } from "@/hooks/useStreak";
 import type { CheckIn, Mood, WeeklyGoal } from "@/types";
 
 const moods: { emoji: string; label: string; value: Mood }[] = [
@@ -34,6 +34,7 @@ const Dashboard = () => {
   const [goalTarget, setGoalTarget] = useState<number>(weeklyGoal?.targetPerWeek ?? 4);
   const [analyticsStreak, setAnalyticsStreak] = useState<number | null>(null);
   const [dailySummary, setDailySummary] = useState<string | null>(null);
+  const { streak, rewards, loading: streakLoading } = useStreak();
 
   useEffect(() => {
     const timezone = settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -65,7 +66,7 @@ const Dashboard = () => {
   const latestMood = checkIns[0]?.mood ?? profile?.baselineMood ?? "neutral";
   const latestMoodLabel = checkIns[0]?.moodLabel || latestMood;
 
-  const streak = useMemo(() => {
+  const checkInStreak = useMemo(() => {
     if (!checkIns.length) return 0;
     const days = Array.from(
       new Set(
@@ -86,7 +87,7 @@ const Dashboard = () => {
     return count;
   }, [checkIns]);
 
-  const streakValue = analyticsStreak ?? streak;
+  const streakValue = analyticsStreak ?? checkInStreak;
 
   const weeklyCount = useMemo(() => {
     const weekAgo = new Date();
@@ -168,12 +169,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-10 animate-fade-in">
-      {/* Calm Audio Player - Fixed Position */}
-      <div className="fixed top-4 right-4 z-50">
-        <CalmAudioPlayer />
-      </div>
-
+    <div className="mx-auto max-w-4xl space-y-8 animate-fade-in">
       {/* Primary action */}
       <Card className="overflow-hidden rounded-3xl border border-border/50 bg-gradient-to-br from-lavender via-secondary to-mint shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
         <CardContent className="p-6 md:p-10">
@@ -221,16 +217,40 @@ const Dashboard = () => {
               <Button onClick={handleCheckIn} disabled={!selectedMood}>
                 Save check-in
               </Button>
-              <Button variant="ghost" onClick={() => navigate("/chat")}>
+              <Button variant="ghost" onClick={() => navigate("/chat")}> 
                 Talk to Sahaay
               </Button>
-              <Button variant="ghost" onClick={() => navigate("/journal")}>
+              <Button variant="ghost" onClick={() => navigate("/journal")}> 
                 Journal instead
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Streak summary cards moved here */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-surface shadow rounded-xl p-4 flex flex-col items-center">
+          <Flame className="text-orange-400 mb-1" size={28} />
+          <div className="text-2xl font-bold">{typeof streak?.currentStreak === 'number' ? streak.currentStreak : 0} days</div>
+          <div className="text-xs text-muted-foreground">Current streak</div>
+        </div>
+        <div className="bg-surface shadow rounded-xl p-4 flex flex-col items-center">
+          <Trophy className="text-green-400 mb-1" size={28} />
+          <div className="text-2xl font-bold">{typeof streak?.longestStreak === 'number' ? streak.longestStreak : 0} days</div>
+          <div className="text-xs text-muted-foreground">Longest streak</div>
+        </div>
+        <div className="bg-surface shadow rounded-xl p-4 flex flex-col items-center">
+          <Shield className="text-blue-400 mb-1" size={28} />
+          <div className="text-2xl font-bold">{typeof streak?.freezeShields === 'number' ? streak.freezeShields : 0}</div>
+          <div className="text-xs text-muted-foreground">Freeze shields</div>
+        </div>
+        <div className="bg-surface shadow rounded-xl p-4 flex flex-col items-center">
+          <Sparkles className="text-purple-400 mb-1" size={28} />
+          <div className="text-2xl font-bold">{rewards?.activePremiumUntil ? 'Active' : 'Inactive'}</div>
+          <div className="text-xs text-muted-foreground">Premium status</div>
+        </div>
+      </div>
 
       {/* Secondary insights */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -331,7 +351,7 @@ const Dashboard = () => {
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="rounded-full border border-border bg-surface px-2 py-1">{weeklyCount}/{goalTarget} days</span>
-                <span className="rounded-full border border-border bg-surface px-2 py-1">Streak: {streak}</span>
+                <span className="rounded-full border border-border bg-surface px-2 py-1">Streak: {typeof streak?.currentStreak === 'number' ? streak.currentStreak : 0}</span>
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">

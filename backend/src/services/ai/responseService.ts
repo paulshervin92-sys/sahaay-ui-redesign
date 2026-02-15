@@ -2,11 +2,27 @@ import { runWithFallback, safeDefaultResponse } from "./aiService.js";
 
 export const generateSupportResponse = async (text: string, context: string, meta?: { userId?: string; purpose?: string }) => {
   const systemPrompt = context 
-    ? "You are a supportive mental wellness assistant. You're in an ongoing conversation. Read the conversation history to understand context, but FOCUS ON THE CURRENT MESSAGE. Ask thoughtful follow-up questions. Never repeat what the user just said. Keep responses concise and warm."
-    : "You are a supportive mental wellness assistant. This is the start of a conversation. Greet warmly and ask an open-ended question. Be empathetic.";
+    ? `You are Sahaay, a supportive mental wellness companion. You're empathetic, warm, and non-judgmental.
+
+Guidelines:
+✓ Validate their feelings first ("That sounds really challenging")
+✓ Ask ONE thoughtful follow-up question
+✓ Use their emotional language naturally
+✓ Be conversational and genuine
+✓ Keep responses 2-3 sentences max
+
+✗ Never repeat their exact words back
+✗ Don't list multiple questions
+✗ Avoid clinical/robotic language
+✗ Don't give unsolicited advice
+
+You're in an ongoing conversation. Read the history to understand context, but focus on their CURRENT message.`
+    : `You are Sahaay, a supportive mental wellness companion. This is the start of a conversation.
+
+Greet them warmly and ask ONE open-ended question about how they're feeling. Be empathetic and conversational. Keep it to 2 sentences max.`;
   
   const userContent = context 
-    ? `---CONVERSATION HISTORY---\n${context}\n\n---CURRENT MESSAGE---\n${text}\n\nRespond to their current message. Do NOT echo or repeat their message. Reference history only if highly relevant.`
+    ? `---PREVIOUS MESSAGES---\n${context}\n\n---THEIR CURRENT MESSAGE---\n${text}\n\nRespond to what they just said. Acknowledge their feeling, then ask a thoughtful follow-up question.`
     : text;
   
   const messages = [
@@ -18,7 +34,14 @@ export const generateSupportResponse = async (text: string, context: string, met
   ];
 
   const result = await runWithFallback(messages, undefined, meta);
+  
+  // Log for debugging
   if (!result.content) {
+    console.error("[responseService] No content returned from AI:", {
+      error: result.error,
+      model: result.model,
+      text: text.substring(0, 50),
+    });
     return safeDefaultResponse("That sounds important. Can you tell me a bit more about how you're feeling?");
   }
 

@@ -1,7 +1,7 @@
 import { openaiClient } from "./openaiClient.js";
 import { logOpenAiUsage } from "./openaiUsageService.js";
 
-const FALLBACK_MODELS = ["gpt-4.1-mini", "gpt-4o-mini", "gpt-3.5-turbo"] as const;
+const FALLBACK_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"] as const;
 
 const isRetryable = (err: unknown) => {
   const anyErr = err as { status?: number; code?: string; message?: string };
@@ -24,14 +24,17 @@ export const runWithFallback = async (
 
   for (const model of FALLBACK_MODELS) {
     try {
+      console.log(`[AI] Trying model: ${model}`);
       const response = await openaiClient.chat.completions.create({
         model,
         messages,
-        temperature: 0.2,
+        temperature: 0.7,
+        max_tokens: 150,
         response_format: responseFormat,
       });
       const content = response.choices[0]?.message?.content ?? "";
       if (content) {
+        console.log(`[AI] ✓ ${model} success (${response.usage?.total_tokens} tokens)`);
         if (response.usage && meta?.purpose) {
           await logOpenAiUsage({
             userId: meta.userId,
@@ -46,6 +49,8 @@ export const runWithFallback = async (
         return { content, model, error: null, usage: response.usage };
       }
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[AI] ✗ ${model} failed: ${errMsg}`);
       lastError = err;
       if (!isRetryable(err)) {
         break;
@@ -53,6 +58,7 @@ export const runWithFallback = async (
     }
   }
 
+  console.error("[AI] All models failed, returning empty");
   return { content: "", model: null, error: lastError };
 };
 

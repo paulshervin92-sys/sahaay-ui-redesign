@@ -60,7 +60,22 @@ const normalizeScores = (scores: Record<EmotionLabel, number>) => {
 
 export const classifyEmotion = async (text: string, meta?: { userId?: string; purpose?: string }): Promise<EmotionResult> => {
   const messages = [
-    { role: "system" as const, content: "Classify emotion. Return JSON with primary, secondary (array), confidence 0-1, sentimentScore 0-1." },
+    { 
+      role: "system" as const, 
+      content: `You are an expert emotion and sentiment analyzer for a mental health app. Analyze the user's text and return JSON with:
+- primary: main emotion (happy, calm, neutral, sad, anxious, frustrated)
+- secondary: array of other detected emotions
+- confidence: how confident you are (0-1)
+- sentimentScore: overall positivity score (0=very negative, 0.5=neutral, 1=very positive)
+
+Consider:
+- Subtle emotional cues and context
+- Mixed emotions (e.g., anxious but hopeful)
+- Intensity of language
+- Mental health relevant patterns
+
+Return ONLY valid JSON, no explanations.`
+    },
     { role: "user" as const, content: text },
   ];
 
