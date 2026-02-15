@@ -34,9 +34,10 @@ const Dashboard = () => {
   const [goalTarget, setGoalTarget] = useState<number>(weeklyGoal?.targetPerWeek ?? 4);
   const [analyticsStreak, setAnalyticsStreak] = useState<number | null>(null);
   const [dailySummary, setDailySummary] = useState<string | null>(null);
-  const { streak, rewards, loading: streakLoading } = useStreak();
+  const { streak, rewards, loading: streakLoading } = useStreak(); // Custom hook for streak and rewards
 
   useEffect(() => {
+    // Fetch analytics streak based on timezone
     const timezone = settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     apiFetch<{ analytics: { streak: number } }>(`/api/analytics?timezone=${encodeURIComponent(timezone)}`)
       .then((result) => setAnalyticsStreak(result.analytics.streak))
@@ -44,6 +45,7 @@ const Dashboard = () => {
   }, [settings.timezone]);
 
   useEffect(() => {
+    // Fetch daily chat summary
     apiFetch<{ summary: { summary?: string } | null }>("/api/chat/summary/today")
       .then((result) => setDailySummary(result.summary?.summary ?? null))
       .catch(() => setDailySummary(null));
@@ -66,16 +68,13 @@ const Dashboard = () => {
   const latestMood = checkIns[0]?.mood ?? profile?.baselineMood ?? "neutral";
   const latestMoodLabel = checkIns[0]?.moodLabel || latestMood;
 
+  // Calculate check-in streak
   const checkInStreak = useMemo(() => {
     if (!checkIns.length) return 0;
-    const days = Array.from(
-      new Set(
-        checkIns.map((item) => new Date(item.createdAt).toDateString()),
-      ),
-    );
+    const days = Array.from(new Set(checkIns.map((item) => new Date(item.createdAt).toDateString())));
     let count = 0;
     let cursor = new Date();
-    for (; ;) {
+    while (true) {
       const key = cursor.toDateString();
       if (days.includes(key)) {
         count += 1;
@@ -87,8 +86,10 @@ const Dashboard = () => {
     return count;
   }, [checkIns]);
 
+  // Use analytics streak if available, else fallback to local streak
   const streakValue = analyticsStreak ?? checkInStreak;
 
+  // Weekly check-in count
   const weeklyCount = useMemo(() => {
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 6);
@@ -100,6 +101,7 @@ const Dashboard = () => {
     return dayKeys.size;
   }, [checkIns]);
 
+  // Mood timeline for past 7 days
   const moodTimeline = useMemo(() => {
     return checkIns.slice(0, 7).reverse().map((item) => {
       const mood = moods.find((m) => m.value === item.mood);
@@ -112,6 +114,7 @@ const Dashboard = () => {
     });
   }, [checkIns]);
 
+  // Show support plan if recent moods are low
   const showSupportPlan = useMemo(() => {
     if (!safetyPlan) return false;
     const lowMoods = new Set(["sad", "anxious", "frustrated"]);
