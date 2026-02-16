@@ -10,6 +10,7 @@ interface UserContextValue {
   weeklyGoal: WeeklyGoal | null;
   checkIns: CheckIn[];
   journals: JournalEntry[];
+  chatMessages: Array<{ text: string; sender: "user" | "ai"; createdAt: string }>;
   safetyPlan: SafetyPlan | null;
   loading: boolean;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
@@ -17,6 +18,7 @@ interface UserContextValue {
   updateWeeklyGoal: (goal: WeeklyGoal) => Promise<void>;
   addCheckIn: (checkIn: CheckIn) => Promise<void>;
   addJournalEntry: (entry: JournalEntry) => Promise<void>;
+  setChatMessages: (messages: Array<{ text: string; sender: "user" | "ai"; createdAt: string }>) => void;
   updateSafetyPlan: (plan: SafetyPlan) => Promise<void>;
   exportData: () => Promise<void>;
   deleteAllData: () => Promise<void>;
@@ -43,6 +45,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const [weeklyGoal, setWeeklyGoal] = useState<WeeklyGoal | null>(null);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [journals, setJournals] = useState<JournalEntry[]>([]);
+  const [chatMessages, setChatMessages] = useState<Array<{ text: string; sender: "user" | "ai"; createdAt: string }>>([]);
   const [safetyPlan, setSafetyPlan] = useState<SafetyPlan | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -217,6 +220,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     setWeeklyGoal(null);
     setCheckIns([]);
     setJournals([]);
+    setChatMessages([]);
     setSafetyPlan(null);
   };
 
@@ -227,6 +231,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       weeklyGoal,
       checkIns,
       journals,
+      chatMessages,
       safetyPlan,
       loading,
       updateProfile,
@@ -234,11 +239,12 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       updateWeeklyGoal,
       addCheckIn,
       addJournalEntry,
+      setChatMessages,
       updateSafetyPlan,
       exportData,
       deleteAllData,
     }),
-    [profile, settings, weeklyGoal, checkIns, journals, safetyPlan, loading],
+    [profile, settings, weeklyGoal, checkIns, journals, chatMessages, safetyPlan, loading],
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

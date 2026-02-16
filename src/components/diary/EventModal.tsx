@@ -52,13 +52,16 @@ const EventModal = ({ date, event, onClose }: EventModalProps) => {
             onChange={handleChange}
             placeholder="Event title"
           />
-          <input
-            className="w-full rounded border px-2 py-1 bg-background text-neutral-900 dark:text-white placeholder:text-muted-foreground"
-            name="time"
-            value={form.time}
-            onChange={handleChange}
-            placeholder="Time (e.g. 3:00pm)"
-          />
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Event Time</label>
+            <input
+              className="w-full rounded border px-2 py-1 bg-background text-neutral-900 dark:text-white placeholder:text-muted-foreground"
+              type="time"
+              name="startTime"
+              value={form.startTime || ""}
+              onChange={handleChange}
+            />
+          </div>
           <textarea
             className="w-full rounded border px-2 py-1 bg-background text-neutral-900 dark:text-white placeholder:text-muted-foreground"
             name="description"

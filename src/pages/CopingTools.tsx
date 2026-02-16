@@ -8,7 +8,14 @@ import { useStreak } from "@/hooks/useStreak";
 import { getToolsForEmotion } from "@/lib/emotionBasedCopingTools";
 import { MINI_GAME_COMPONENTS } from "@/components/MiniGames";
 import type { InteractiveCopingTool } from "@/lib/emotionBasedCopingTools";
+import { ALL_TOOLS } from "@/lib/emotionBasedCopingTools";
 import type { Mood } from "@/types";
+import {
+  getRecommendedCopingTools,
+  buildRecommendationContext,
+  CopingTool,
+  CopingCategory
+} from "@/lib/copingRecommendation";
 
 
 
@@ -31,6 +38,34 @@ const CopingTools = () => {
     };
     return labels[moodFocus] ?? "Not sure";
   }, [moodFocus]);
+
+  // AI Recommendation Logic
+  const { checkIns, chatMessages } = useUser();
+
+  const recommendedTools = useMemo(() => {
+    // Map InteractiveCopingTool to CopingTool for the engine
+    const mappedTools: CopingTool[] = ALL_TOOLS.map(t => ({
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      category: (t.type === "guided" ? "grounding" :
+        t.type === "reflective" ? "reflection" :
+          t.type === "creative" ? "reflection" : "cognitive") as CopingCategory,
+      supportedMoods: [t.emotion],
+      intensityLevel: (t.priority <= 2 ? "high" : t.priority <= 4 ? "medium" : "low") as any,
+      durationMinutes: t.durationMinutes,
+      icon: t.icon,
+      color: t.color,
+      type: t.id
+    }));
+
+    const context = buildRecommendationContext(
+      checkIns.map(c => ({ mood: c.mood, createdAt: c.createdAt })),
+      chatMessages
+    );
+
+    return getRecommendedCopingTools(mappedTools, context).slice(0, 2);
+  }, [checkIns, chatMessages]);
 
 
 
@@ -55,8 +90,8 @@ const CopingTools = () => {
             type="button"
             onClick={() => setMoodFocus(item.value as Mood)}
             className={`rounded-full border px-3 py-1.5 transition-all ${moodFocus === item.value
-                ? "border-primary/40 bg-primary/10 text-foreground"
-                : "border-border bg-surface text-muted-foreground hover:text-foreground"
+              ? "border-primary/40 bg-primary/10 text-foreground"
+              : "border-border bg-surface text-muted-foreground hover:text-foreground"
               }`}
           >
             {item.label}
@@ -65,41 +100,85 @@ const CopingTools = () => {
       </div>
 
 
-      <div className="space-y-3">
-        <div>
-          <h2 className="font-display text-lg font-semibold text-foreground animate-fade-in">Mini games for {moodLabel}</h2>
-          <p className="text-sm text-muted-foreground animate-fade-in">Pick one tool to start a short, engaging exercise.</p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {emotionTools.map((tool, idx) => (
-            <Card
-              key={tool.id}
-              className="card-elevated group rounded-2xl transition-transform duration-500 ease-out hover:scale-105 animate-fade-in"
-              style={{ animationDelay: `${idx * 60}ms` }}
-            >
-              <CardContent className="flex h-full flex-col gap-4 p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${tool.color} transition-transform group-hover:scale-110 icon-tilt`}>
-                    <tool.icon className="h-5 w-5" />
+      <div className="space-y-6">
+        {recommendedTools.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <h2 className="font-display text-lg font-semibold text-foreground">AI Recommended for you</h2>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {recommendedTools.map((tool, idx) => (
+                <Card
+                  key={`rec-${tool.id}`}
+                  className="card-elevated group relative overflow-hidden rounded-2xl border-primary/20 bg-primary/5 transition-transform duration-500 ease-out hover:scale-105"
+                >
+                  <CardContent className="flex h-full flex-col gap-4 p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${tool.color} transition-transform group-hover:scale-110`}>
+                        <tool.icon className="h-5 w-5" />
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-primary font-bold">
+                        <Sparkles className="h-3 w-3" />
+                        <span>Top Match</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="font-display text-lg font-semibold text-foreground">{tool.title}</h3>
+                      <p className="text-xs font-medium text-primary bg-primary/10 px-3 py-2 rounded-xl italic">
+                        "{tool.reason}"
+                      </p>
+                      <p className="text-sm text-muted-foreground">{tool.description}</p>
+                    </div>
+                    <Button
+                      onClick={() => setActiveEmotionTool(ALL_TOOLS.find(t => t.id === tool.id) || null)}
+                      className="rounded-xl mt-2"
+                    >
+                      Start Recommended Tool
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <div>
+            <h2 className="font-display text-lg font-semibold text-foreground animate-fade-in">Mini games for {moodLabel}</h2>
+            <p className="text-sm text-muted-foreground animate-fade-in">Pick one tool to start a short, engaging exercise.</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {emotionTools.map((tool, idx) => (
+              <Card
+                key={tool.id}
+                className="card-elevated group rounded-2xl transition-transform duration-500 ease-out hover:scale-105 animate-fade-in"
+                style={{ animationDelay: `${idx * 60}ms` }}
+              >
+                <CardContent className="flex h-full flex-col gap-4 p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${tool.color} transition-transform group-hover:scale-110 icon-tilt`}>
+                      <tool.icon className="h-5 w-5" />
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+                      <span className="rounded-full border border-border px-2 py-1">Priority {tool.priority}</span>
+                      <span className="rounded-full border border-border px-2 py-1">{tool.durationMinutes} min</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-                    <span className="rounded-full border border-border px-2 py-1">Priority {tool.priority}</span>
-                    <span className="rounded-full border border-border px-2 py-1">{tool.durationMinutes} min</span>
+                  <div className="space-y-1">
+                    <h3 className="font-display text-lg font-semibold text-foreground">{tool.title}</h3>
+                    <p className="text-sm text-muted-foreground">{tool.description}</p>
                   </div>
-                </div>
-                <div className="space-y-1">
-                  <h3 className="font-display text-lg font-semibold text-foreground">{tool.title}</h3>
-                  <p className="text-sm text-muted-foreground">{tool.description}</p>
-                </div>
-                <div className="mt-auto flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                  {tool.gamification.hasProgress && <span className="rounded-full border border-border px-2 py-1">Progress</span>}
-                  {tool.gamification.hasRewards && <span className="rounded-full border border-border px-2 py-1">Rewards</span>}
-                  {tool.gamification.hasLevels && <span className="rounded-full border border-border px-2 py-1">Levels</span>}
-                </div>
-                <Button onClick={() => setActiveEmotionTool(tool)} className="rounded-xl">Start mini game</Button>
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="mt-auto flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                    {tool.gamification.hasProgress && <span className="rounded-full border border-border px-2 py-1">Progress</span>}
+                    {tool.gamification.hasRewards && <span className="rounded-full border border-border px-2 py-1">Rewards</span>}
+                    {tool.gamification.hasLevels && <span className="rounded-full border border-border px-2 py-1">Levels</span>}
+                  </div>
+                  <Button onClick={() => setActiveEmotionTool(tool)} className="rounded-xl">Start mini game</Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
 

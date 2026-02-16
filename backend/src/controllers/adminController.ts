@@ -3,6 +3,7 @@ import type { AuthRequest } from "../middlewares/authMiddleware.js";
 import { env } from "../config/env.js";
 import { createSession } from "../services/auth/sessionService.js";
 import { getFirestore } from "../config/firebase.js";
+import { getGlobalAnalytics } from "../services/analytics/analyticsService.js";
 
 const htmlPage = (title: string, body: string) => `<!doctype html>
 <html lang="en">
@@ -78,6 +79,7 @@ export const adminDashboard = async (_req: AuthRequest, res: Response) => {
     chats,
     reports,
     usage,
+    globalTrends,
   ] = await Promise.all([
     db.collection("users").limit(50).get(),
     db.collection("profiles").limit(50).get(),
@@ -87,7 +89,34 @@ export const adminDashboard = async (_req: AuthRequest, res: Response) => {
     db.collection("chatMessages").limit(50).get(),
     db.collection("reports").limit(50).get(),
     db.collection("openaiUsage").limit(50).get(),
+    getGlobalAnalytics(),
   ]);
+
+  const moodEmojis: Record<string, string> = {
+    happy: "😊",
+    calm: "😌",
+    neutral: "😐",
+    sad: "😔",
+    anxious: "😰",
+    frustrated: "😤",
+  };
+
+  const trendRows = globalTrends.map(t => {
+    const percentage = Math.round(t.averageSentiment * 100);
+    const emoji = moodEmojis[t.topMood] || "😐";
+    return `
+      <div style="margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span style="font-weight: 600;">${new Date(t.day).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+          <span class="muted">${t.totalParticipants} participants • Top Mood: ${emoji}</span>
+        </div>
+        <div style="height: 12px; background: #e2e8f0; border-radius: 6px; overflow: hidden;">
+          <div style="height: 100%; width: ${percentage}%; background: ${percentage > 70 ? '#10b981' : percentage > 40 ? '#f59e0b' : '#ef4444'};"></div>
+        </div>
+        <div style="text-align: right; font-size: 11px; margin-top: 2px;">Positivity: ${percentage}%</div>
+      </div>
+    `;
+  }).join("");
 
   const toRows = (snap: FirebaseFirestore.QuerySnapshot) =>
     snap.docs
@@ -107,8 +136,23 @@ export const adminDashboard = async (_req: AuthRequest, res: Response) => {
       .join("");
 
   const body = `
-<div class="card">
+<div class="card" style="margin-bottom: 28px;">
   <h1>Admin Overview</h1>
+  <p class="muted">Institutional Wellbeing Dashboard</p>
+</div>
+
+<div class="card section">
+  <h2>Institutional Wellbeing Trends (Anonymized)</h2>
+  <div style="padding: 10px 0;">
+    ${trendRows || '<p class="muted">No aggregate data available yet.</p>'}
+  </div>
+  <p class="muted" style="border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 12px;">
+    <strong>Privacy Guard:</strong> Individual data is aggregated and anonymized to preserve participant trust while providing systemic insights.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Recent Raw Data</h2>
   <p class="muted">Showing last 50 records per section.</p>
 </div>
 <div class="section"><h2>Users</h2><table><tr><th>ID</th><th>Data</th></tr>${toRows(users)}</table></div>

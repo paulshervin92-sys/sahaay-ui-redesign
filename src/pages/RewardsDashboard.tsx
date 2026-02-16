@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Flame, Trophy, Shield, Sparkles } from "lucide-react";
 import { useStreak } from "@/hooks/useStreak";
+import { useUser } from "@/contexts/UserContext";
 import StreakCard from "@/components/StreakCard";
 import RewardCard from "@/components/RewardCard";
 import RewardProgress from "@/components/RewardProgress";
@@ -16,6 +17,18 @@ const REWARD_MILESTONES = [
 
 export default function RewardsDashboard() {
   const { streak, rewards, loading } = useStreak();
+
+  // Get local today's date string (YYYY-MM-DD)
+  const { settings } = useUser();
+  const todayStr = useMemo(() => {
+    const tz = settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    // Simple way to get YYYY-MM-DD for current timezone using Intl
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    return `${year}-${month}-${day}`;
+  }, [settings.timezone]);
 
   // Provide safe defaults if streak or rewards are undefined
   const safeStreak = streak || { currentStreak: 0, longestStreak: 0, freezeShields: 0 };
@@ -58,43 +71,43 @@ export default function RewardsDashboard() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-bold text-foreground">Today's Goal</h2>
-            <p className="text-sm text-muted-foreground">Complete a meaningful activity to increase your streak.</p>
+            <p className="text-sm text-muted-foreground">Complete any activity to increase your streak.</p>
           </div>
           <div className="bg-white/50 px-3 py-1 rounded-full text-xs font-medium border border-primary/10">
-            Status: {safeStreak.lastMeaningfulDate === new Date().toISOString().split('T')[0] ? '✅ Completed' : '⌛ Pending'}
+            Status: {safeStreak.lastMeaningfulDate === todayStr ? '✅ Completed' : '⌛ Pending'}
           </div>
         </div>
 
         <div className="space-y-3">
-          <div className={`p-4 rounded-xl border flex items-center gap-4 transition-all ${safeStreak.lastCheckInDate === new Date().toISOString().split('T')[0]
+          <div className={`p-4 rounded-xl border flex items-center gap-4 transition-all ${safeStreak.lastCheckInDate === todayStr || safeStreak.lastMeaningfulDate === todayStr
             ? 'bg-green-500/5 border-green-500/20'
             : 'bg-white/40 border-border'
             }`}>
-            <div className={`h-6 w-6 rounded-full flex items-center justify-center border ${safeStreak.lastCheckInDate === new Date().toISOString().split('T')[0]
+            <div className={`h-6 w-6 rounded-full flex items-center justify-center border ${safeStreak.lastCheckInDate === todayStr || safeStreak.lastMeaningfulDate === todayStr
               ? 'bg-green-500 border-green-500 text-white'
               : 'border-muted-foreground'
               }`}>
-              {safeStreak.lastCheckInDate === new Date().toISOString().split('T')[0] && '✓'}
+              {(safeStreak.lastCheckInDate === todayStr || safeStreak.lastMeaningfulDate === todayStr) && '✓'}
             </div>
             <div>
               <div className="font-semibold text-sm">Daily Check-in</div>
-              <p className="text-xs text-muted-foreground">Keeps your streak alive (prevents reset).</p>
+              <p className="text-xs text-muted-foreground">Increases your streak by 1 day.</p>
             </div>
           </div>
 
-          <div className={`p-4 rounded-xl border flex items-center gap-4 transition-all ${safeStreak.lastMeaningfulDate === new Date().toISOString().split('T')[0]
+          <div className={`p-4 rounded-xl border flex items-center gap-4 transition-all ${safeStreak.lastMeaningfulDate === todayStr
             ? 'bg-orange-500/5 border-orange-500/20 shadow-sm'
             : 'bg-white/40 border-border shadow-none'
             }`}>
-            <div className={`h-6 w-6 rounded-full flex items-center justify-center border ${safeStreak.lastMeaningfulDate === new Date().toISOString().split('T')[0]
+            <div className={`h-6 w-6 rounded-full flex items-center justify-center border ${safeStreak.lastMeaningfulDate === todayStr
               ? 'bg-orange-500 border-orange-500 text-white'
               : 'border-muted-foreground'
               }`}>
-              {safeStreak.lastMeaningfulDate === new Date().toISOString().split('T')[0] && '✓'}
+              {safeStreak.lastMeaningfulDate === todayStr && '✓'}
             </div>
             <div>
               <div className="font-semibold text-sm">Meaningful Activity</div>
-              <p className="text-xs text-muted-foreground">Increases streak by 1 day (Journal, Chat, or Exercise).</p>
+              <p className="text-xs text-muted-foreground">Journal, Chat, or Exercise (also counts for streak).</p>
             </div>
           </div>
         </div>

@@ -187,7 +187,7 @@ const Analytics = () => {
                 tickMargin={8}
               />
               <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} stroke="hsl(var(--text-muted))" />
-              <Tooltip 
+              <Tooltip
                 contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
                 formatter={(value: any, name: any, props: any) => {
                   if (name === "mood" && props.payload.moodLabel) {
@@ -265,7 +265,7 @@ const Analytics = () => {
                   cells.push({ key: `empty-${i}` });
                 }
                 for (let d = 1; d <= daysInMonth; d += 1) {
-                  const dayKey = new Date(year, month, d).toISOString().slice(0, 10);
+                  const dayKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                   cells.push({
                     key: dayKey,
                     label: d,

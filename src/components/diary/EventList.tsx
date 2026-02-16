@@ -36,7 +36,7 @@ const EventList = ({ events, date }: EventListProps) => {
               className="rounded bg-card/80 px-2 py-1 text-xs text-foreground flex items-center justify-between cursor-pointer hover:bg-primary/10"
               onClick={() => { setSelectedEvent(evt); setShowModal(true); }}
             >
-              <span>{evt.time} - {evt.title}</span>
+              <span>{evt.startTime || evt.time} - {evt.title}</span>
             </li>
           ))
         ) : (

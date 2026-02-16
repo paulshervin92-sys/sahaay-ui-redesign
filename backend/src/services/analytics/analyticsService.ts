@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { getFirestore } from "../../config/firebase.js";
 import { getDailyCheckIns } from "../checkin/checkinService.js";
 
 const moodScore = (mood: string) => {
@@ -63,4 +64,35 @@ export const buildAnalytics = async (userId: string, timezone: string) => {
     averageSentiment,
     sentimentByDay,
   };
+};
+
+export const getGlobalAnalytics = async () => {
+  const db = getFirestore();
+  const snapshot = await db.collection("checkinsDaily").get();
+  const records = snapshot.docs.map((doc: any) => doc.data());
+
+  const trends: Record<string, { totalSentiment: number; count: number; moods: Record<string, number> }> = {};
+
+  records.forEach((record: any) => {
+    const day = record.dayKey;
+    if (!trends[day]) trends[day] = { totalSentiment: 0, count: 0, moods: {} };
+
+    const entries = record.entries || [];
+    entries.forEach((e: any) => {
+      trends[day].totalSentiment += (e.sentimentScore ?? 0.5);
+      trends[day].count += 1;
+      const mood = e.mood || "neutral";
+      trends[day].moods[mood] = (trends[day].moods[mood] || 0) + 1;
+    });
+  });
+
+  return Object.entries(trends)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .slice(0, 14)
+    .map(([day, data]) => ({
+      day,
+      averageSentiment: Number((data.totalSentiment / (data.count || 1)).toFixed(2)),
+      totalParticipants: data.count,
+      topMood: Object.entries(data.moods).sort((a, b) => b[1] - a[1])[0]?.[0] || "neutral"
+    }));
 };

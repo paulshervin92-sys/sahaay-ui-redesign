@@ -982,3 +982,12 @@ export const searchTools = (keyword: string): InteractiveCopingTool[] => {
       tool.benefits.some((b) => b.toLowerCase().includes(lower)),
   );
 };
+
+export const ALL_TOOLS: InteractiveCopingTool[] = [
+  ...HAPPY_TOOLS,
+  ...CALM_TOOLS,
+  ...NEUTRAL_TOOLS,
+  ...SAD_TOOLS,
+  ...ANXIOUS_TOOLS,
+  ...FRUSTRATED_TOOLS,
+];

@@ -150,7 +150,7 @@ const SafetyPlanPage = () => {
   const handleExport = useCallback(() => {
     const plan = safetyPlan ?? emptyPlan;
     let text = "🛡️ MY SAFETY PLAN\n\n";
-    
+
     if (plan.reasonsToLive.length) {
       text += "💛 REASONS TO LIVE:\n" + plan.reasonsToLive.map(r => `• ${r}`).join("\n") + "\n\n";
     }
@@ -183,7 +183,7 @@ const SafetyPlanPage = () => {
     if (plan.groundingNotes) {
       text += "🌿 GROUNDING NOTES:\n" + plan.groundingNotes + "\n\n";
     }
-    
+
     text += "Generated from Sahaay Safety Plan\n";
     text += new Date().toLocaleString();
 
@@ -196,7 +196,7 @@ const SafetyPlanPage = () => {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    
+
     toast({
       title: "Safety plan exported",
       description: "You can print or share this file.",
@@ -206,7 +206,7 @@ const SafetyPlanPage = () => {
   const moveContact = useCallback((fromIndex: number, direction: 'up' | 'down') => {
     const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
     if (toIndex < 0 || toIndex >= contacts.length) return;
-    
+
     const newContacts = [...contacts];
     [newContacts[fromIndex], newContacts[toIndex]] = [newContacts[toIndex], newContacts[fromIndex]];
     setContacts(newContacts);
@@ -510,7 +510,7 @@ const SafetyPlanPage = () => {
         </CardContent>
       </Card>
 
-      {filledPreview && safetyPlan && (
+      {!!filledPreview && safetyPlan && (
         <Card className="card-elevated rounded-2xl">
           <CardContent className="p-6 space-y-2">
             <p className="text-sm font-semibold text-foreground">Quick preview</p>

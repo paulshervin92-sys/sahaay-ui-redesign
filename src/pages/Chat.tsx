@@ -64,7 +64,7 @@ const Chat = () => {
   const [isFocused, setIsFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
-  const { safetyPlan } = useUser();
+  const { safetyPlan, setChatMessages } = useUser();
   const [helplines, setHelplines] = useState<Helpline[]>([]);
 
   useEffect(() => {
@@ -115,6 +115,12 @@ const Chat = () => {
   useEffect(() => {
     if (!isLoading) {
       endRef.current?.scrollIntoView({ behavior: "smooth" });
+      // Sync with UserContext for recommendations
+      setChatMessages(messages.map(m => ({
+        text: m.text,
+        sender: m.sender,
+        createdAt: m.createdAt || new Date().toISOString()
+      })));
     }
   }, [messages, isTyping, isLoading]);
 
@@ -128,7 +134,7 @@ const Chat = () => {
   const handleSend = () => {
     if (!input.trim() || isHistorical) return;
     const userMsg: Message = { id: Date.now(), text: input.trim(), sender: "user" };
-    
+
     // Optimistic UI - show user message immediately
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
@@ -136,17 +142,17 @@ const Chat = () => {
     setIsSending(true);
 
     // Use combined endpoint for speed (1 API call instead of 2)
-    apiFetch<{ 
-      tags: string[]; 
-      crisis: { severity: string }; 
-      response: { id: string; text: string } 
+    apiFetch<{
+      tags: string[];
+      crisis: { severity: string };
+      response: { id: string; text: string }
     }>("/api/chat", {
       method: "POST",
       body: JSON.stringify({ text: userMsg.text, getResponse: true }),
     })
       .then((result) => {
         const isCrisis = result.crisis?.severity === "high";
-        
+
         // Update user message with tags
         setMessages((prev) =>
           prev.map((msg) =>
@@ -165,21 +171,21 @@ const Chat = () => {
       })
       .catch((error) => {
         console.error("Chat error:", error);
-        
+
         // Show error message to user
-        const errorMsg = error.status === 500 
+        const errorMsg = error.status === 500
           ? "I'm having trouble right now. Please try again."
           : error.status === 429
-          ? "Too many requests. Please wait a moment."
-          : "I am here for you. Tell me more.";
-        
+            ? "Too many requests. Please wait a moment."
+            : "I am here for you. Tell me more.";
+
         const aiMsg: Message = {
           id: Date.now() + 1,
           text: errorMsg,
           sender: "ai",
         };
         setMessages((prev) => [...prev, aiMsg]);
-        
+
         toast({
           title: "Connection issue",
           description: "Your message was saved but response failed. Try again?",
@@ -189,7 +195,8 @@ const Chat = () => {
       .finally(() => {
         setIsTyping(false);
         setIsSending(false);
-      });  };
+      });
+  };
 
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col animate-fade-in">

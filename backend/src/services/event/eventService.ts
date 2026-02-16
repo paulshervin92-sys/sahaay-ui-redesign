@@ -1,4 +1,7 @@
 import { getFirestore } from "../../config/firebase.js";
+import { getUserEmailById } from "../auth/authService.js";
+import { sendEventReminder } from "../../utils/email.js";
+import { scheduleEmail } from "../../utils/scheduler.js";
 
 export interface EventInput {
     title: string;
@@ -16,6 +19,33 @@ export const createEvent = async (userId: string, input: EventInput) => {
         ...input,
         createdAt: new Date().toISOString(),
     });
+
+    // Schedule email reminder if time is provided
+    if (input.date && input.startTime) {
+        try {
+            // Attempt to parse date and time (Time expected in 24h format or HH:mm)
+            const eventDate = new Date(`${input.date}T${input.startTime}`);
+            if (!isNaN(eventDate.getTime()) && eventDate > new Date()) {
+                const email = await getUserEmailById(userId);
+                if (email) {
+                    scheduleEmail({
+                        id: `event_rem_${doc.id}`,
+                        date: eventDate,
+                        callback: async () => {
+                            await sendEventReminder({
+                                to: email,
+                                subject: `Sahaay Reminder: ${input.title}`,
+                                text: `Your event "${input.title}" is starting now.\n\nDescription: ${input.description || 'No description provided.'}`,
+                            });
+                        },
+                    });
+                }
+            }
+        } catch (err) {
+            console.error("Failed to schedule event reminder:", err);
+        }
+    }
+
     return { id: doc.id, ...input };
 };
 

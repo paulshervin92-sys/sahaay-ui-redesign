@@ -39,6 +39,8 @@ export const upsertDailyCheckIn = async (userId: string, timezone: string, input
       lastMood: input.mood,
       updatedAt: new Date().toISOString(),
     });
+    // Update streak in background
+    updateUserStreak(userId, "DAILY_CHECK_IN", timezone).catch(err => console.error("Streak update error:", err));
     return { dayKey, entryCount: 1 };
   }
 
