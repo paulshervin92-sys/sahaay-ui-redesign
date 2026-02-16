@@ -1,5 +1,5 @@
 import { initializeApp, type FirebaseApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import {
   getFirestore,
   initializeFirestore,
@@ -27,6 +27,7 @@ export const initFirebase = () => {
 
 export const firebaseApp = initFirebase();
 export const auth = getAuth(firebaseApp);
+export const googleProvider = new GoogleAuthProvider();
 
 const globalFirestore = globalThis as typeof globalThis & { __sahaayFirestore?: Firestore };
 

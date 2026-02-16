@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { signInWithPopup } from "firebase/auth";
+import { auth, googleProvider } from "@/lib/firebase";
 import { apiFetch } from "@/lib/api";
 
 export interface AuthUser {
@@ -12,6 +14,7 @@ interface AuthContextValue {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName?: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   logOut: () => Promise<void>;
 }
 
@@ -83,6 +86,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           },
         );
         // Store token for subsequent API calls
+        if (result.token) {
+          storeToken(result.token);
+        }
+        setUser({
+          uid: result.user.userId,
+          email: result.user.email,
+          displayName: result.user.displayName,
+        });
+      },
+      signInWithGoogle: async () => {
+        const credential = await signInWithPopup(auth, googleProvider);
+        const idToken = await credential.user.getIdToken();
+        const result = await apiFetch<{ user: { userId: string; email: string; displayName: string }; token: string }>(
+          "/api/auth/google",
+          {
+            method: "POST",
+            body: JSON.stringify({ idToken }),
+          },
+        );
         if (result.token) {
           storeToken(result.token);
         }

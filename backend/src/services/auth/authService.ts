@@ -71,3 +71,49 @@ export const authenticateUser = async (email: string, password: string) => {
 
   return { userId: doc.id, email: data.email as string, displayName: data.displayName as string };
 };
+
+export const authenticateWithGoogle = async (email: string, displayName?: string) => {
+  const emailLower = email.trim().toLowerCase();
+  const existing = await usersCollection().where("emailLower", "==", emailLower).limit(1).get();
+
+  if (!existing.empty) {
+    const doc = existing.docs[0];
+    const data = doc.data();
+    return { userId: doc.id, email: data.email as string, displayName: data.displayName as string };
+  }
+
+  // Create new user if not exists
+  const userRef = usersCollection().doc();
+  const createdAt = new Date().toISOString();
+
+  await userRef.set({
+    email: email.trim(),
+    emailLower,
+    passwordHash: null, // Google users don't have a local password
+    displayName: displayName?.trim() || "",
+    createdAt,
+    authProvider: "google",
+  });
+
+  await profilesCollection().doc(userRef.id).set({
+    id: userRef.id,
+    name: displayName?.trim() || "",
+    email: email.trim(),
+    goals: [],
+    baselineMood: "neutral",
+    createdAt,
+    onboardingComplete: false,
+  });
+
+  await settingsCollection().doc(userRef.id).set({
+    fontScale: 1,
+    reduceMotion: false,
+    remindersEnabled: false,
+    reminderTime: "20:00",
+    privateMode: false,
+    offlineSync: true,
+    timezone: "UTC",
+  });
+
+  return { userId: userRef.id, email: email.trim(), displayName: displayName?.trim() || "" };
+};

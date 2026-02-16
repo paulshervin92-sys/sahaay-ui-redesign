@@ -1,8 +1,10 @@
 import type { Request, Response } from "express";
 import type { CookieOptions } from "express";
-import { authenticateUser, registerUser } from "../services/auth/authService.js";
+import { authenticateUser, registerUser, authenticateWithGoogle } from "../services/auth/authService.js";
+import admin from "firebase-admin";
 import { createSession, deleteSession } from "../services/auth/sessionService.js";
 import { env } from "../config/env.js";
+import { AppError } from "../utils/appError.js";
 import type { AuthRequest } from "../middlewares/authMiddleware.js";
 
 const getCookieOptions = (): CookieOptions => ({
@@ -16,12 +18,12 @@ export const register = async (req: Request, res: Response) => {
   const { email, password, displayName } = req.body as { email: string; password: string; displayName?: string };
   const user = await registerUser(email, password, displayName);
   const session = await createSession(user.userId);
-  
+
   // Set cookie for web app (backward compatible)
   res.cookie(env.SESSION_COOKIE_NAME, session.sessionId, getCookieOptions());
-  
+
   // Return token in response body for mobile app
-  return res.json({ 
+  return res.json({
     user,
     token: session.sessionId,  // Mobile app uses this
     session: session.sessionId // For compatibility
@@ -32,12 +34,12 @@ export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body as { email: string; password: string };
   const user = await authenticateUser(email, password);
   const session = await createSession(user.userId);
-  
+
   // Set cookie for web app (backward compatible)
   res.cookie(env.SESSION_COOKIE_NAME, session.sessionId, getCookieOptions());
-  
+
   // Return token in response body for mobile app
-  return res.json({ 
+  return res.json({
     user,
     token: session.sessionId,  // Mobile app uses this
     session: session.sessionId // For compatibility
@@ -47,7 +49,7 @@ export const login = async (req: Request, res: Response) => {
 export const logout = async (req: AuthRequest, res: Response) => {
   // Support both cookie and token-based auth
   let sessionId = req.cookies?.[env.SESSION_COOKIE_NAME];
-  
+
   // Check Authorization header for mobile
   if (!sessionId && req.headers.authorization) {
     const authHeader = req.headers.authorization;
@@ -55,7 +57,7 @@ export const logout = async (req: AuthRequest, res: Response) => {
       sessionId = authHeader.substring(7);
     }
   }
-  
+
   if (sessionId) {
     await deleteSession(sessionId);
   }
@@ -65,4 +67,32 @@ export const logout = async (req: AuthRequest, res: Response) => {
 
 export const me = async (req: AuthRequest, res: Response) => {
   return res.json({ userId: req.userId });
+};
+
+export const googleAuth = async (req: Request, res: Response) => {
+  const { idToken } = req.body as { idToken: string };
+
+  if (!idToken) {
+    throw new AppError("ID Token is required", 400);
+  }
+
+  // Verify the ID token
+  const decodedToken = await admin.auth().verifyIdToken(idToken);
+  const { email, name } = decodedToken;
+
+  if (!email) {
+    throw new AppError("Email not found in token", 400);
+  }
+
+  const user = await authenticateWithGoogle(email, name);
+  const session = await createSession(user.userId);
+
+  // Set cookie for web app
+  res.cookie(env.SESSION_COOKIE_NAME, session.sessionId, getCookieOptions());
+
+  return res.json({
+    user,
+    token: session.sessionId,
+    session: session.sessionId
+  });
 };
