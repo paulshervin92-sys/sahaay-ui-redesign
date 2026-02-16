@@ -6,3 +6,7 @@ export const openaiClient = new OpenAI({
   organization: env.OPENAI_ORG_ID,
   project: env.OPENAI_PROJECT_ID,
 });
+
+console.log(`[AI] OpenAI client initialized with key: ${env.OPENAI_API_KEY?.substring(0, 8)}...${env.OPENAI_API_KEY?.substring(env.OPENAI_API_KEY.length - 4)}`);
+
+

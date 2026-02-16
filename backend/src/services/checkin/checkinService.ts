@@ -1,5 +1,7 @@
 import { getFirestore } from "../../config/firebase.js";
 import { getDayKey } from "../../utils/date.js";
+import { updateUserStreak } from "../streakService.js";
+
 
 export type Mood = "happy" | "calm" | "neutral" | "sad" | "anxious" | "frustrated";
 
@@ -46,6 +48,9 @@ export const upsertDailyCheckIn = async (userId: string, timezone: string, input
     lastMoodLabel: input.moodLabel ?? null,
     updatedAt: new Date().toISOString(),
   });
+
+  // Update streak in background
+  updateUserStreak(userId, "DAILY_CHECK_IN", timezone).catch(err => console.error("Streak update error:", err));
 
   return { dayKey, entryCount: 1 };
 };

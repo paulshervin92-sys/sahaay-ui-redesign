@@ -4,6 +4,9 @@ export const createPostSchema = z.object({
   body: z.object({
     text: z.string().min(1),
     category: z.string().min(1),
+    type: z.string().optional(),
+    question: z.string().optional(),
+    options: z.array(z.string()).optional(),
   }),
 });
 

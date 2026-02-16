@@ -2,6 +2,8 @@ import { getFirestore } from "../../config/firebase.js";
 import { getUserEmailById } from "../auth/authService.js";
 import { sendEventReminder } from "../../utils/email.js";
 import { scheduleEmail } from "../../utils/scheduler.js";
+import { updateUserStreak } from "../streakService.js";
+
 
 export interface JournalEntryInput {
   prompt: string;
@@ -12,8 +14,9 @@ export interface JournalEntryInput {
 
 const collection = () => getFirestore().collection("journals");
 
-export const createJournalEntry = async (userId: string, input: JournalEntryInput) => {
+export const createJournalEntry = async (userId: string, input: JournalEntryInput, timezone: string = "UTC") => {
   const createdAt = input.createdAt || new Date().toISOString();
+
   const doc = await collection().add({
     userId,
     prompt: input.prompt,
@@ -42,6 +45,11 @@ export const createJournalEntry = async (userId: string, input: JournalEntryInpu
       }
     }
   }
+
+  // Update streak in background
+  updateUserStreak(userId, "JOURNAL_ENTRY", timezone).catch(err => console.error("Streak update error:", err));
+
+
   return { id: doc.id, prompt: input.prompt, entry: input.entry, createdAt, eventTime: input.eventTime };
 };
 

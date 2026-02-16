@@ -27,13 +27,16 @@ export const getRewards = async (req: AuthenticatedRequest, res: Response) => {
   return res.json(rewardDoc.exists ? rewardDoc.data() : { unlockedRewards: [], activePremiumUntil: null });
 };
 
-export const updateStreak = async (req: Request, res: Response) => {
-  const { userId, activityType } = req.body;
+export const updateStreak = async (req: AuthenticatedRequest, res: Response) => {
+  const { activityType } = req.body;
+  const userId = req.userId;
+  const timezone = req.body.timezone || "UTC";
+
   if (!userId || !activityType) {
-    return res.status(400).json({ error: "userId and activityType required" });
+    return res.status(400).json({ error: "activityType required" });
   }
   try {
-    const result = await updateUserStreak(userId, activityType);
+    const result = await updateUserStreak(userId, activityType, timezone);
     return res.json(result);
   } catch (err) {
     if (err instanceof Error) {

@@ -1,15 +1,21 @@
 import { openaiClient } from "./openaiClient.js";
 import { logOpenAiUsage } from "./openaiUsageService.js";
 
-const FALLBACK_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"] as const;
+const FALLBACK_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo", "gpt-4"] as const;
 
 const isRetryable = (err: unknown) => {
-  const anyErr = err as { status?: number; code?: string; message?: string };
+  const anyErr = err as { status?: number; code?: string; message?: string; error?: { code?: string } };
   const status = anyErr?.status ?? 0;
+  const code = anyErr?.code || anyErr?.error?.code;
+
+  if (code === "insufficient_quota") {
+    return false; // Quota exceeded is not retryable with other models usually
+  }
+
   if (status === 429 || status === 408 || status === 500 || status === 502 || status === 503 || status === 504) {
     return true;
   }
-  if (anyErr?.code && ["rate_limit_exceeded", "insufficient_quota", "ETIMEDOUT", "ENOTFOUND"].includes(anyErr.code)) {
+  if (code && ["rate_limit_exceeded", "ETIMEDOUT", "ENOTFOUND"].includes(code)) {
     return true;
   }
   return false;
@@ -20,7 +26,7 @@ export const runWithFallback = async (
   responseFormat?: { type: "json_object" },
   meta?: { userId?: string; purpose?: string },
 ) => {
-  let lastError: unknown = null;
+  let lastError: any = null;
 
   for (const model of FALLBACK_MODELS) {
     try {
@@ -48,15 +54,23 @@ export const runWithFallback = async (
         }
         return { content, model, error: null, usage: response.usage };
       }
-    } catch (err) {
+    } catch (err: any) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      const code = err?.code || err?.error?.code;
       console.error(`[AI] ✗ ${model} failed: ${errMsg}`);
       lastError = err;
+
+      if (code === "insufficient_quota") {
+        console.error("[AI] Account quota exceeded. Please check OpenAI billing.");
+        break; // Stop trying other models
+      }
+
       if (!isRetryable(err)) {
         break;
       }
     }
   }
+
 
   console.error("[AI] All models failed, returning empty");
   return { content: "", model: null, error: lastError };

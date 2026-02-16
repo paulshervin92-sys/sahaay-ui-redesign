@@ -53,6 +53,53 @@ export default function RewardsDashboard() {
         </div>
       </div>
 
+      {/* Daily Goal / Today's Status */}
+      <div className="bg-gradient-to-br from-primary/10 to-purple-500/10 border border-primary/20 rounded-2xl p-6 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-foreground">Today's Goal</h2>
+            <p className="text-sm text-muted-foreground">Complete a meaningful activity to increase your streak.</p>
+          </div>
+          <div className="bg-white/50 px-3 py-1 rounded-full text-xs font-medium border border-primary/10">
+            Status: {safeStreak.lastMeaningfulDate === new Date().toISOString().split('T')[0] ? '✅ Completed' : '⌛ Pending'}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className={`p-4 rounded-xl border flex items-center gap-4 transition-all ${safeStreak.lastCheckInDate === new Date().toISOString().split('T')[0]
+            ? 'bg-green-500/5 border-green-500/20'
+            : 'bg-white/40 border-border'
+            }`}>
+            <div className={`h-6 w-6 rounded-full flex items-center justify-center border ${safeStreak.lastCheckInDate === new Date().toISOString().split('T')[0]
+              ? 'bg-green-500 border-green-500 text-white'
+              : 'border-muted-foreground'
+              }`}>
+              {safeStreak.lastCheckInDate === new Date().toISOString().split('T')[0] && '✓'}
+            </div>
+            <div>
+              <div className="font-semibold text-sm">Daily Check-in</div>
+              <p className="text-xs text-muted-foreground">Keeps your streak alive (prevents reset).</p>
+            </div>
+          </div>
+
+          <div className={`p-4 rounded-xl border flex items-center gap-4 transition-all ${safeStreak.lastMeaningfulDate === new Date().toISOString().split('T')[0]
+            ? 'bg-orange-500/5 border-orange-500/20 shadow-sm'
+            : 'bg-white/40 border-border shadow-none'
+            }`}>
+            <div className={`h-6 w-6 rounded-full flex items-center justify-center border ${safeStreak.lastMeaningfulDate === new Date().toISOString().split('T')[0]
+              ? 'bg-orange-500 border-orange-500 text-white'
+              : 'border-muted-foreground'
+              }`}>
+              {safeStreak.lastMeaningfulDate === new Date().toISOString().split('T')[0] && '✓'}
+            </div>
+            <div>
+              <div className="font-semibold text-sm">Meaningful Activity</div>
+              <p className="text-xs text-muted-foreground">Increases streak by 1 day (Journal, Chat, or Exercise).</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Next milestone */}
       <div className="bg-card rounded-xl p-6 mb-8">
         <div className="text-xs font-semibold text-muted-foreground mb-2">NEXT MILESTONE</div>
@@ -92,6 +139,62 @@ export default function RewardsDashboard() {
             )}
           </div>
         ))}
+      </div>
+
+      {/* How it works */}
+      <div className="mb-8 p-8 bg-card border border-primary/10 rounded-3xl shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+          <Sparkles size={120} />
+        </div>
+
+        <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+          <Sparkles className="text-primary" size={24} />
+          The Sahaay Streak System
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
+          <div className="flex flex-col gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-orange-100 flex items-center justify-center">
+              <Flame className="text-orange-500" size={20} />
+            </div>
+            <h3 className="font-bold text-foreground">Grow your Streak</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Complete a <span className="text-orange-600 font-semibold">Meaningful Activity</span> daily to increase your count. This represents real progress in your wellness journey.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-blue-100 flex items-center justify-center">
+              <Shield className="text-blue-500" size={20} />
+            </div>
+            <h3 className="font-bold text-foreground">Protect with Shields</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Life happens. If you only have time for a <span className="text-blue-600 font-semibold">Quick Check-in</span>, we'll use a Freeze Shield to keep your streak from resetting to zero.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-purple-100 flex items-center justify-center">
+              <Trophy className="text-purple-500" size={20} />
+            </div>
+            <h3 className="font-bold text-foreground">Unlock Rewards</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Milestones like 3, 7, and 14 days unlock powerful tools and premium features to help you go deeper into your mental wellness.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-8 p-4 bg-surface rounded-2xl border border-border/50">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Meaningful Activity Checklist</p>
+          <div className="flex flex-wrap gap-3">
+            {['Journal Entry', 'Coping Tool', 'Meaningful Chat', 'Guided Exercise'].map(act => (
+              <div key={act} className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-full border border-border text-xs font-medium">
+                <div className="h-2 w-2 rounded-full bg-primary" />
+                {act}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Unlocked rewards */}

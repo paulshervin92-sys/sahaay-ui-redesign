@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Wind, Mountain, Sparkles, Dumbbell, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useUser } from "@/contexts/UserContext";
+import { useStreak } from "@/hooks/useStreak";
 import { getToolsForEmotion } from "@/lib/emotionBasedCopingTools";
 import { MINI_GAME_COMPONENTS } from "@/components/MiniGames";
 import type { InteractiveCopingTool } from "@/lib/emotionBasedCopingTools";
@@ -16,6 +17,7 @@ const CopingTools = () => {
   const [activeEmotionTool, setActiveEmotionTool] = useState<InteractiveCopingTool | null>(null);
   const [gameProgress, setGameProgress] = useState<any>(null);
   const { profile } = useUser();
+  const { updateStreak } = useStreak();
   const [moodFocus, setMoodFocus] = useState<Mood>(profile?.baselineMood ?? "neutral");
   const emotionTools = useMemo(() => getToolsForEmotion(moodFocus), [moodFocus]);
   const moodLabel = useMemo(() => {
@@ -52,11 +54,10 @@ const CopingTools = () => {
             key={item.value}
             type="button"
             onClick={() => setMoodFocus(item.value as Mood)}
-            className={`rounded-full border px-3 py-1.5 transition-all ${
-              moodFocus === item.value
+            className={`rounded-full border px-3 py-1.5 transition-all ${moodFocus === item.value
                 ? "border-primary/40 bg-primary/10 text-foreground"
                 : "border-border bg-surface text-muted-foreground hover:text-foreground"
-            }`}
+              }`}
           >
             {item.label}
           </button>
@@ -144,6 +145,7 @@ const CopingTools = () => {
                 </div>
                 <Button className="rounded-xl animate-fade-in" onClick={() => {
                   setGameProgress({ started: true, toolId: activeEmotionTool.id });
+                  updateStreak("COPING_TOOL_COMPLETED");
                 }}>Begin</Button>
               </div>
             </div>

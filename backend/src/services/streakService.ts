@@ -1,4 +1,7 @@
 import { getFirestore } from "../config/firebase.js";
+import { getDayKey } from "../utils/date.js";
+import { DateTime } from "luxon";
+
 
 const userStreaksCollection = () => getFirestore().collection("userStreaks");
 const userRewardsCollection = () => getFirestore().collection("userRewards");
@@ -18,11 +21,11 @@ const MEANINGFUL_ACTIVITIES = [
   "AI_CHAT_MEANINGFUL_SESSION"
 ];
 
-export async function updateUserStreak(userId: string, activityType: string) {
+export async function updateUserStreak(userId: string, activityType: string, timezone: string = "UTC") {
   const streakDocRef = userStreaksCollection().doc(userId);
   const rewardDocRef = userRewardsCollection().doc(userId);
   const now = new Date();
-  const today = now.toISOString().split("T")[0];
+  const today = getDayKey(now, timezone);
 
   let streakDoc = await streakDocRef.get();
   let streakData: any = streakDoc.exists && streakDoc.data() ? streakDoc.data() : {
@@ -44,7 +47,6 @@ export async function updateUserStreak(userId: string, activityType: string) {
 
   // Check last meaningful date
   const lastMeaningfulDate = streakData.lastMeaningfulDate;
-  const lastCheckInDate = streakData.lastCheckInDate;
 
   // If meaningful activity
   if (isMeaningful) {
@@ -58,10 +60,10 @@ export async function updateUserStreak(userId: string, activityType: string) {
       };
     }
     // Check if yesterday was last meaningful
-    let yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split("T")[0];
-    if (lastMeaningfulDate === yesterdayStr || lastMeaningfulDate === today || !lastMeaningfulDate) {
+    const yesterdayStr = DateTime.fromJSDate(now, { zone: timezone }).minus({ days: 1 }).toFormat("yyyy-LL-dd");
+
+    if (lastMeaningfulDate === yesterdayStr || !lastMeaningfulDate) {
+
       streakData.currentStreak += 1;
     } else {
       // Missed a day
@@ -81,9 +83,8 @@ export async function updateUserStreak(userId: string, activityType: string) {
     // Only check-in
     streakData.lastCheckInDate = today;
     // If missed meaningful yesterday, freeze
-    let yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split("T")[0];
+    const yesterdayStr = DateTime.fromJSDate(now, { zone: timezone }).minus({ days: 1 }).toFormat("yyyy-LL-dd");
+
     if (streakData.lastMeaningfulDate !== yesterdayStr && streakData.lastMeaningfulDate !== today) {
       if (streakData.freezeShields > 0) {
         streakData.freezeShields -= 1;

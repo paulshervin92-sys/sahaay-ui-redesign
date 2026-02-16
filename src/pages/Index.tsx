@@ -109,7 +109,6 @@ const Index = () => {
               <a href="#features" className="transition-colors hover:text-foreground">Features</a>
               <a href="#how" className="transition-colors hover:text-foreground">How it works</a>
               <a href="#characters" className="transition-colors hover:text-foreground">Emotion guides</a>
-              <a href="#stories" className="transition-colors hover:text-foreground">Stories</a>
             </nav>
             <div className="flex items-center gap-3">
               <Link
@@ -412,36 +411,6 @@ const Index = () => {
         </div>
       </section>
 
-      <section className="landing-section px-4 pb-24 pt-12 md:px-10" id="stories">
-        <div className="mx-auto w-full max-w-[1440px]">
-          <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr]">
-            <div className="space-y-5">
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Stories</p>
-              <h2 className="landing-display text-3xl font-semibold">A professional look that feels human.</h2>
-              <p className="text-muted-foreground">
-                Calm visuals, emotive characters, and subtle motion help people feel seen. These scenes adapt as the
-                experience grows with each check-in.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                {["Animated guidance", "Soft transitions", "Inclusive design"].map((item) => (
-                  <span key={item} className="rounded-full border border-border/70 px-4 py-2 text-xs text-muted-foreground">
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {["Morning calm", "Focused afternoon", "Evening reset"].map((label) => (
-                <div key={label} className="landing-photo group rounded-3xl border border-border/60 bg-surface/70 p-5">
-                  <div className="photo-frame mb-4 rounded-2xl float-medium" aria-hidden="true" />
-                  <p className="text-sm font-semibold text-foreground">{label}</p>
-                  <p className="text-xs text-muted-foreground">Guided sequence, adaptive prompts.</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
 
       <section className="landing-section px-4 pb-24 pt-12 md:px-10">
         <div className="mx-auto w-full max-w-[1440px]">

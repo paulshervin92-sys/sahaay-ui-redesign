@@ -7,6 +7,8 @@ import { generateSupportResponse } from "../services/ai/responseService.js";
 import { upsertDailyCheckIn } from "../services/checkin/checkinService.js";
 import { generateDailySummary, getDailySummary } from "../services/chat/chatSummaryService.js";
 import { getDayKey } from "../utils/date.js";
+import { updateUserStreak } from "../services/streakService.js";
+
 
 const messagesCollection = () => getFirestore().collection("chatMessages");
 const settingsCollection = () => getFirestore().collection("settings");
@@ -32,7 +34,7 @@ const extractTags = (text: string) => {
 export const sendMessage = async (req: AuthRequest, res: Response) => {
   const { text, getResponse = false } = req.body as { text: string; getResponse?: boolean };
   const userId = req.userId as string;
-  
+
   try {
     // Parallelize emotion and crisis detection for speed
     const [emotion, crisis, timezone] = await Promise.all([
@@ -40,7 +42,7 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       detectCrisis(text, { userId, purpose: "chat_crisis" }),
       getUserTimezone(userId),
     ]);
-    
+
     const tags = extractTags(text);
     const moodLabel = buildMoodLabel(emotion);
     const dayKey = getDayKey(new Date(), timezone);
@@ -67,37 +69,50 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
         sentimentScore: emotion.sentimentScore,
       }),
       generateDailySummary(userId, timezone, emotion),
+      updateUserStreak(userId, "AI_CHAT_MEANINGFUL_SESSION", timezone),
     ]).catch(err => console.error("Background task error:", err));
+
+
 
     // If frontend wants response in same call, generate it
     if (getResponse) {
       const recent = await messagesCollection()
         .where("userId", "==", userId)
         .where("dayKey", "==", dayKey)
-        .orderBy("createdAt", "desc")
-        .limit(6)
+        // Removed orderBy to avoid requiring composite index
         .get();
-      
+
       let recentMessages = recent.docs.map((doc) => doc.data());
-      
+
+      // Sort in-memory instead
+      recentMessages.sort((a: any, b: any) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime; // Newest first
+      });
+
+      // Limit to 6 for context
+      recentMessages = recentMessages.slice(0, 6);
+
+
       // Sort chronologically (oldest first)
       recentMessages.sort((a: any, b: any) => {
         const aTime = new Date(a.createdAt).getTime();
         const bTime = new Date(b.createdAt).getTime();
         return aTime - bTime;
       });
-      
+
       // Build context with both user and AI messages, but exclude the JUST-SENT message
       const contextMessages = recentMessages
         .filter((msg: any) => msg.text !== text)
         .slice(-4); // Last 4 messages (2 exchanges)
-      
+
       const context = contextMessages
         .map((msg: any) => `${msg.sender === "user" ? "User" : "Sahaay"}: ${msg.text}`)
         .join("\n");
-      
+
       const response = await generateSupportResponse(text, context, { userId, purpose: "chat_response" });
-      
+
       // Save AI response
       const aiDoc = await messagesCollection().add({
         userId: req.userId,
@@ -107,11 +122,11 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
         timezone,
         createdAt: new Date().toISOString(),
       });
-      
-      return res.json({ 
-        messageId: doc.id, 
-        emotion, 
-        crisis, 
+
+      return res.json({
+        messageId: doc.id,
+        emotion,
+        crisis,
         tags,
         response: {
           id: aiDoc.id,
@@ -123,7 +138,7 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     return res.json({ messageId: doc.id, emotion, crisis, tags });
   } catch (error) {
     console.error("Send message error:", error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: "Failed to send message",
       details: error instanceof Error ? error.message : "Unknown error"
     });
@@ -171,40 +186,50 @@ export const listHistory = async (req: AuthRequest, res: Response) => {
 export const generateResponse = async (req: AuthRequest, res: Response) => {
   const { text } = req.body as { text: string };
   const userId = req.userId as string;
-  
+
   try {
     const timezone = await getUserTimezone(userId);
     const dayKey = getDayKey(new Date(), timezone);
-    
+
     const recent = await messagesCollection()
       .where("userId", "==", userId)
       .where("dayKey", "==", dayKey)
-      .limit(10)
       .get();
-    
+
     let recentMessages = recent.docs.map((doc) => doc.data());
-    
+
+    // Sort by recency (most recent first) in-memory
+    recentMessages.sort((a: any, b: any) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    // Limit to 10 for processing
+    recentMessages = recentMessages.slice(0, 10);
+
+
     // Filter out current message and AI messages
-    recentMessages = recentMessages.filter((msg: any) => 
+    recentMessages = recentMessages.filter((msg: any) =>
       msg.text !== text && msg.sender !== "ai"
     );
-    
+
     // Sort by recency (most recent first)
     recentMessages.sort((a: any, b: any) => {
       const aTime = new Date(a.createdAt).getTime();
       const bTime = new Date(b.createdAt).getTime();
       return bTime - aTime;
     });
-    
+
     // Take last 3 messages for context
     const contextMessages = recentMessages.slice(0, 3);
     const context = contextMessages
       .map((msg: any) => `User: ${msg.text}`)
       .reverse()
       .join("\n");
-    
+
     const response = await generateSupportResponse(text, context, { userId, purpose: "chat_response" });
-    
+
     await messagesCollection().add({
       userId: req.userId,
       sender: "ai",
@@ -213,11 +238,11 @@ export const generateResponse = async (req: AuthRequest, res: Response) => {
       timezone,
       createdAt: new Date().toISOString(),
     });
-    
+
     return res.json({ response });
   } catch (error) {
     console.error("Generate response error:", error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: "Failed to generate response",
       details: error instanceof Error ? error.message : "Unknown error"
     });

@@ -33,7 +33,6 @@ const navItems = [
   { title: "Your Mood Journey", url: "/analytics", icon: BarChart3 },
   { title: "Ways to Feel Better", url: "/coping", icon: Heart },
   { title: "Community", url: "/community", icon: Users },
-  { title: "Games", url: "/games", icon: Sparkles },
   { title: "Rewards", url: "/rewards", icon: Trophy },
   { title: "Journal", url: "/journal", icon: NotebookPen },
   { title: "Safety Plan", url: "/safety", icon: ShieldAlert },
