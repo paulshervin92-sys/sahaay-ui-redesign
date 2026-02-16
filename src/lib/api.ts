@@ -96,7 +96,6 @@ export const apiFetch = async <T>(
       }
 
       const response = await fetchWithTimeout(buildUrl(path), {
-        credentials: "include",
         headers: {
           ...getAuthHeaders(),
           ...(options?.headers || {}),
